@@ -77,13 +77,15 @@ def test_cli_help():
         ("--db-file", "option-value", "db_file"),
     ],
 )
-def test_context_options(option, value, var):
+def test_context_options(test_config_file, option, value, var):
     """ """
     runner = CliRunner()
 
     result = runner.invoke(
         cli,
         [
+            "--config",
+            test_config_file,
             option,
             value,
             "test-ctx",

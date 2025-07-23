@@ -13,7 +13,7 @@ load_dotenv()
 
 
 def ensure_path(
-    path: str | Path,
+    path: Path | str,
     must_exist=False,
     parents_only=False,
     base_dir=None,
@@ -25,7 +25,7 @@ def ensure_path(
     If parents_only, then only create logical parents of the path (good for paths
         that other processes will actually create)
     """
-    path = Path(path)
+    path: Path = Path(path)
 
     # fix relative path to accommodate base
     if base_dir and not path.is_absolute():
