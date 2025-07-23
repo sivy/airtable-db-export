@@ -4,6 +4,7 @@ on: push
 
 env:
   FORCE_COLOR: "1" # Make tools pretty.
+  AIRTABLE_API_KEY: "testfoobar"
 
 jobs:
   uv-setup:
