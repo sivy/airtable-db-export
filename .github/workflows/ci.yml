@@ -7,7 +7,7 @@ env:
 
 jobs:
   uv-setup:
-    name: python
+    name: build and test
     runs-on: ubuntu-latest
 
     steps:
@@ -20,8 +20,7 @@ jobs:
           version: "0.8.0"
 
       - name: Install the project
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --all-extras --dev
 
       - name: Run tests
-        # For example, using `pytest`
         run: uv run pytest tests
