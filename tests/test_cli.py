@@ -84,7 +84,7 @@ def test_context_options(test_config_file, option, value, var):
     result = runner.invoke(
         cli,
         [
-            "--config",
+            "-c",
             test_config_file,
             option,
             value,
