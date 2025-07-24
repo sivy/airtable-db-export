@@ -1,7 +1,7 @@
-import typing as t
 import json
-
 import re
+import typing as t
+from pathlib import Path
 
 if t.TYPE_CHECKING:
     from pyairtable import Api as ATApi
@@ -191,9 +191,7 @@ def make_sql_schema(
     return table_schema
 
 
-def make_schema_json(
-    api_client: "ATApi", conf: dict, path: str = "schemas.json"
-) -> None:
+def make_schema_json(api_client: "ATApi", conf: dict, path: Path | str = "schemas.json") -> None:
     """
     Inspects the Airtable base schema and, for the tables listed in the config, generates the
     intermediate mappings from Airtable tables to SQL tables.

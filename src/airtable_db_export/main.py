@@ -1,5 +1,4 @@
 import os
-import sys
 import typing as t
 from pathlib import Path
 
@@ -13,7 +12,7 @@ load_dotenv()
 
 
 def ensure_path(
-    path: Path | str,
+    check_path: Path | str,
     must_exist=False,
     parents_only=False,
     base_dir=None,
@@ -25,7 +24,7 @@ def ensure_path(
     If parents_only, then only create logical parents of the path (good for paths
         that other processes will actually create)
     """
-    path: Path = Path(path)
+    path: Path = Path(check_path)
 
     # fix relative path to accommodate base
     if base_dir and not path.is_absolute():
@@ -56,7 +55,7 @@ def ensure_path(
 
 
 @click.group()
-@click.option("--config", "-c", default="config.yml")
+@click.option("--config-file", "-c", default="config.yml")
 @click.option("--base-dir", default="")
 @click.option("--schemas-file", default="")
 @click.option("--data-dir", default="")
@@ -65,8 +64,8 @@ def ensure_path(
 @click.pass_context
 def cli(
     ctx,
-    config: str,
-    base_dir: str,
+    config_file: Path | str,
+    base_dir: Path | str,
     schemas_file: str,
     data_dir: str,
     sql_dir: str,
@@ -76,15 +75,15 @@ def cli(
     Main entry point for the CLI.
     """
     try:
-        ensure_path(config, must_exist=True)
+        ensure_path(config_file, must_exist=True)
 
     except FileNotFoundError:
-        click.echo(f"Configuration file {config} does not exist!", err=True)
+        click.echo(f"Configuration file {config_file} does not exist!", err=True)
         import sys
 
         sys.exit(1)
 
-    config = utils.load_config(config)
+    config: dict = utils.load_config(config_file)
 
     # if a base_dir was defined, make sure it exists
     if not base_dir:
@@ -135,7 +134,7 @@ def cli(
     }
 
 
-def _generate_schema_map(api_client: ATApi, config: dict, schemas_file: str) -> None:
+def _generate_schema_map(api_client: ATApi, config: dict, schemas_file: Path | str) -> None:
     """
     Generate the intermediate mappings from Airtable tables to SQL tables based
     on the config.
@@ -144,7 +143,10 @@ def _generate_schema_map(api_client: ATApi, config: dict, schemas_file: str) -> 
     at.make_schema_json(api_client, config, schemas_file)
 
 
-@cli.command("generate-schema-map")
+@cli.command(
+    "generate-schema-map",
+    help="Generate schemas.json file",
+)
 @click.pass_context
 def generate_schema_map(ctx):
     config = ctx.obj["config"]
@@ -157,7 +159,7 @@ def generate_schema_map(ctx):
     _generate_schema_map(api_client, config, schemas_file)
 
 
-def _download_data_json(api_client: ATApi, schemas_file: str, data_dir: str) -> None:
+def _download_data_json(api_client: ATApi, schemas_file: Path | str, data_dir: Path | str) -> None:
     """
     Load data from tables in Airtable to JSON in DATADIR.
     """
@@ -165,9 +167,7 @@ def _download_data_json(api_client: ATApi, schemas_file: str, data_dir: str) -> 
 
     schemas: list[dict[str, t.Any]] = utils.load_schemas(schemas_file)
     for schema in schemas:
-        click.echo(
-            f"Loading data from Base: {schema['base']} Table: {schema['airtable']}..."
-        )
+        click.echo(f"Loading data from Base: {schema['base']} Table: {schema['airtable']}...")
         data: list[dict[str, t.Any]] = at.load_airtable(api_client, schema)
         click.echo(f"Saving data to {schema['sqltable']}.json...")
         at.save_table_json(data, f"{data_dir}/{schema['sqltable']}.json")
@@ -193,7 +193,7 @@ def download_data_json(ctx):
     _download_data_json(api_client, schemas_file, data_dir)
 
 
-def _create_sql(schemas_file: str, sql_dir: str) -> None:
+def _create_sql(schemas_file: Path | str, sql_dir: Path | str) -> None:
     click.echo("Generate CREATE DDL")
 
     schemas: list[dict[str, t.Any]] = utils.load_schemas(schemas_file)
@@ -216,7 +216,7 @@ def create_sql(ctx):
     _create_sql(schemas_file, sql_dir)
 
 
-def _create_db(schemas_file: str, db_file: str, sql_dir: str) -> None:
+def _create_db(schemas_file: Path | str, db_file: Path | str, sql_dir: Path | str) -> None:
     """ """
     click.echo(f"Create database in {db_file}")
 
@@ -243,7 +243,7 @@ def create_db(ctx):
     _create_db(schemas_file, db_file, sql_dir)
 
 
-def _load_db(db_file, schemas_file: str, data_dir: str):
+def _load_db(db_file: Path | str, schemas_file: Path | str, data_dir: Path | str):
     """ """
     schemas = utils.load_schemas(schemas_file)
     # load create tables
@@ -264,9 +264,7 @@ def load_db(ctx):
     data_dir = ensure_path(data_dir, base_dir=base_dir, must_exist=True)
 
     db_file = ctx.obj["db_file"]
-    db_file = ensure_path(
-        db_file, parents_only=True, base_dir=base_dir, must_exist=True
-    )
+    db_file = ensure_path(db_file, parents_only=True, base_dir=base_dir, must_exist=True)
 
     _load_db(db_file, schemas_file, data_dir)
 

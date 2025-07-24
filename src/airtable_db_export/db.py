@@ -1,6 +1,7 @@
 import typing as t
 import duckdb
 from contextlib import contextmanager
+from pathlib import Path
 
 import re
 
@@ -14,16 +15,16 @@ def clean_name(name: str):
 
 
 @contextmanager
-def dbconn(dbfile: str):
+def dbconn(dbfile: Path | str):
     conn = duckdb.connect(dbfile)
     yield conn
     conn.close()
 
 
 def bootstrap_db(
-    dbfile: str,
+    dbfile: Path | str,
     schemas: t.List[dict],
-    data_dir: str = "sql",
+    data_dir: Path | str = "sql",
 ) -> None:
     """
     Bootstrap the database with the create table files
@@ -54,21 +55,21 @@ def make_table_create(schema: t.Dict[str, t.Any]) -> str:
 
 def make_create_files(
     schemas: t.List[t.Dict[str, t.Any]],
-    location: str = "sql",
+    sql_dir: Path | str = "create_sql",
 ) -> None:
     """
     Make SQL create table statements from schemas
     """
     for create_schema in schemas:
         create_sql: str = make_table_create(create_schema)
-        with open(f"{location}/create_{create_schema['sqltable']}.sql", "w") as sqlfile:
+        with open(f"{sql_dir}/create_{create_schema['sqltable']}.sql", "w") as sqlfile:
             sqlfile.write(create_sql)
 
 
 def load_db(
-    dbfile: str,
+    dbfile: Path | str,
     schemas: t.List[dict],
-    data_dir: str = "data",
+    data_dir: Path | str = "data",
 ) -> None:
     with dbconn(dbfile) as conn:
         for schema in schemas:
