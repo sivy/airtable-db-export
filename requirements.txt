@@ -1,3 +1,4 @@
+-e file:///Users/sivy/projects/airtable-db-export
 alabaster==1.0.0
 annotated-types==0.7.0
 babel==2.17.0
