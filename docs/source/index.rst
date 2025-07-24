@@ -15,7 +15,7 @@ non-technical users to be able to create new tables, forms and interfaces quickl
 
 An individual or organization using Airtable may find that after building a quick solution
 or prototype in Airtable, they want to export this data into a structure that is optimized
-for use in tranditional developement or for further analysis.
+for use in traditional development or for further analysis.
 
 `Airtable DB Export`_ enables developers to download tables of data from Airtable as JSON files,
 configure the mapping of Airtable tables and fields to SQL tables and columns, and (currently)
