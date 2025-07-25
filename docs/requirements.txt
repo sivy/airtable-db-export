@@ -1,3 +1,4 @@
+-e file:///Users/sivy/projects/airtable-db-export
 alabaster==1.0.0
 annotated-types==0.7.0
 babel==2.17.0
@@ -27,9 +28,11 @@ pytz==2025.2
 pyyaml==6.0.2
 requests==2.32.4
 roman-numerals-py==3.1.0
+ruff==0.12.5
 six==1.17.0
 snowballstemmer==3.0.1
 sphinx==8.2.3
+sphinx-click==6.0.0
 sphinx-rtd-theme==3.0.2
 sphinxcontrib-applehelp==2.0.0
 sphinxcontrib-devhelp==2.0.0
