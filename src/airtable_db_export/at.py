@@ -39,7 +39,7 @@ SKIP_TYPES: list[str] = [
 
 
 # Map Airtable types to SQL types
-TYPEMAP = {
+TYPEMAP: dict = {
     ATYPES.SINGLE_LINE_TEXT: "VARCHAR",
     ATYPES.MULTI_LINE_TEXT: "VARCHAR",
     ATYPES.RICH_TEXT: "VARCHAR",
