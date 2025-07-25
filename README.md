@@ -18,7 +18,10 @@ to SQL tables and columns, and (currently) create and load a DuckDB SQL database
 data.
 
 
-## Install
+
+## Documentation
+
+Read more on [ReadTheDocs](https://airtable-db-export.readthedocs.io/en/latest/).
 
 ### Using pip
 

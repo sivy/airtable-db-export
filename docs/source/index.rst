@@ -21,9 +21,9 @@ for use in traditional development or for further analysis.
 configure the mapping of Airtable tables and fields to SQL tables and columns, and (currently)
 create and load a DuckDB SQL database with downloaded data.
 
-
-
 .. _Airtable DB Export: https://github.com/sivy/airtable-db-export
+
+Lets look at an `Example <example.html>`__...
 
 
 .. toctree::
