@@ -56,6 +56,7 @@ def ensure_path(
 
 @click.group()
 @click.option("--config-file", "-c", default="config.yml")
+@click.option("--no-config-file", is_flag=True, default=False)
 @click.option("--base-dir", default="")
 @click.option("--schemas-file", default="")
 @click.option("--data-dir", default="")
@@ -65,6 +66,7 @@ def ensure_path(
 def cli(
     ctx,
     config_file: Path | str,
+    no_config_file: bool,
     base_dir: Path | str,
     schemas_file: str,
     data_dir: str,
@@ -74,6 +76,10 @@ def cli(
     """
     Main entry point for the CLI.
     """
+
+    if no_config_file:
+        return
+
     try:
         ensure_path(config_file, must_exist=True)
 
@@ -141,6 +147,62 @@ def _generate_schema_map(api_client: ATApi, config: dict, schemas_file: Path | s
     """
     click.echo(f"Generating schema mappings to file: {schemas_file}")
     at.make_schema_json(api_client, config, schemas_file)
+
+
+@cli.command("create-config")
+@click.argument("filename")
+def create_config(filename):
+    with open(filename, "w") as f:
+        f.write("""
+# EXAMPLE Airtable DB Export config
+
+# if set, generate all files relative to this directory (created, if it doesn't exist)
+base_dir: generated
+
+# name of the intermediate file that maps the actual Airtable schema to your
+# configured SQL schema.
+# Relative to base_dir.
+schemas_file: schemas.json
+
+# where to create downloaded JSON files
+# Relative to base_dir.
+datadir: data
+
+# where to create the CREATE statement files for your new tables
+# Relative to base_dir.
+sql_dir: create_sql
+
+# path to the generated database file.
+# Relative to base_dir.
+db_file: myapp.duckdb
+
+# completely ignore Airtable fields matching these
+# regular expressions
+column_filters:
+- " copy$"
+
+tables:
+  # NOTE: any tables that need to be related by ID need to come from the
+  # same Airtable base
+
+  # bases need to be identified by ID, found in the Airtable URL starting
+  # with "app"
+  - base: appeNGWTuxyPrRBDc
+    # tables can be identified by name
+    airtable: My Table
+    # name of the SQL table to create
+    table: my_table
+    # if true: only export and create the specified columns
+    all_columns: false
+
+    # mapping of Airtabe fields to SQL column names
+    # used to specify field names, otherwise column names will be
+    # "cleaned", removing non-alphanumeric characters and replacing
+    # spaces with underscores (_)
+    columns:
+      # links
+      "Name": name
+""")
 
 
 @cli.command(
