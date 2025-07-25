@@ -15,6 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
+airtable-db-export = "airtable_db_export.main:cli"
 adbe = "airtable_db_export.main:cli"
 
 [build-system]
@@ -23,5 +24,5 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = ["pytest>=8.4.1"]
-docs = ["sphinx>=8.2.3", "sphinx-rtd-theme>=3.0.2"]
+docs = ["sphinx>=8.2.3", "sphinx-click>=6.0.0", "sphinx-rtd-theme>=3.0.2"]
 lint = ["ruff"]

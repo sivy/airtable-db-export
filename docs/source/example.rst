@@ -1,3 +1,5 @@
+.. _example:
+
 End to End Example
 ==================
 
