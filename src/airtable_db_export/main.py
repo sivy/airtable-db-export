@@ -55,13 +55,58 @@ def ensure_path(
 
 
 @click.group()
-@click.option("--config-file", "-c", default="config.yml")
-@click.option("--no-config-file", is_flag=True, default=False)
-@click.option("--base-dir", default="")
-@click.option("--schemas-file", default="")
-@click.option("--data-dir", default="")
-@click.option("--sql-dir", default="")
-@click.option("--db-file", default="")
+@click.option(
+    "--config-file",
+    "-c",
+    default="config.yml",
+    help="Config file with options and table definitions. See :ref:`config` for more.",
+)
+@click.option(
+    "--no-config-file",
+    is_flag=True,
+    default=False,
+    help="Flag to stop option processing. Only use before create-config command.",
+)
+@click.option(
+    "--base-dir",
+    default="",
+    help="""
+Directory in which to put all generated files. Can be absolute or relative to the
+current directory.
+""",
+)
+@click.option(
+    "--schemas-file",
+    default="",
+    help="""
+Filename for the intermediate mapping file that maps Airtable tables and fields
+to SQL tables and columns.
+""",
+)
+@click.option(
+    "--data-dir",
+    default="",
+    help="""
+The directory to download and save Airtable JSON data.
+If <base_dir> is set, will be treated as relative to <base_dir> unless it's an absolute path.
+""",
+)
+@click.option(
+    "--sql-dir",
+    default="",
+    help="""
+The directory to put generated CREATE DDL files.
+If <base_dir> is set, will be treated as relative to <base_dir> unless it's an absolute path.
+""",
+)
+@click.option(
+    "--db-file",
+    default="",
+    help="""
+The file path for the generated database.
+If <base_dir> is set, will be treated as relative to <base_dir> unless it's an absolute path.
+""",
+)
 @click.pass_context
 def cli(
     ctx,
@@ -149,7 +194,10 @@ def _generate_schema_map(api_client: ATApi, config: dict, schemas_file: Path | s
     at.make_schema_json(api_client, config, schemas_file)
 
 
-@cli.command("create-config")
+@cli.command(
+    "create-config",
+    help="Generate a starting config file that you can adapt for your needs.",
+)
 @click.argument("filename")
 def create_config(filename):
     with open(filename, "w") as f:
@@ -187,7 +235,7 @@ tables:
 
   # bases need to be identified by ID, found in the Airtable URL starting
   # with "app"
-  - base: appeNGWTuxyPrRBDc
+  - base: app123ABC456DEF
     # tables can be identified by name
     airtable: My Table
     # name of the SQL table to create
@@ -207,7 +255,9 @@ tables:
 
 @cli.command(
     "generate-schema-map",
-    help="Generate schemas.json file",
+    help="""Generate schemas.json file. This file is intermediary and contains
+the information needed to map the selected Airtable fields to SQL tables and columns
+""",
 )
 @click.pass_context
 def generate_schema_map(ctx):
@@ -237,7 +287,12 @@ def _download_data_json(api_client: ATApi, schemas_file: Path | str, data_dir: P
     click.echo("Downloading data complete")
 
 
-@cli.command("download-json")
+@cli.command(
+    "download-json",
+    help="""
+Download Airtable data as JSON. Files will be stored in <data_dir>.
+""",
+)
 @click.pass_context
 def download_data_json(ctx):
     """ """
@@ -263,7 +318,13 @@ def _create_sql(schemas_file: Path | str, sql_dir: Path | str) -> None:
     click.echo("CREATE DDL complete")
 
 
-@cli.command("create-sql", help="Generate database definitions")
+@cli.command(
+    "create-sql",
+    help="""
+    Generate CREATE DDL for database tables based on Airtable schema and table
+    configuration in the config.yml.
+""",
+)
 @click.pass_context
 def create_sql(ctx):
     """ """
@@ -286,7 +347,12 @@ def _create_db(schemas_file: Path | str, db_file: Path | str, sql_dir: Path | st
     db.bootstrap_db(db_file, schemas, sql_dir)
 
 
-@cli.command("create-db", help="Generate database definitions")
+@cli.command(
+    "create-db",
+    help="""
+Create database from generated DDL.
+""",
+)
 @click.pass_context
 def create_db(ctx):
     """ """
@@ -313,7 +379,12 @@ def _load_db(db_file: Path | str, schemas_file: Path | str, data_dir: Path | str
     db.load_db(db_file, schemas, data_dir)
 
 
-@cli.command("load-db")
+@cli.command(
+    "load-db",
+    help="""
+Load JSON data from Airtable into the database.
+""",
+)
 @click.pass_context
 def load_db(ctx):
     """ """
