@@ -243,7 +243,7 @@ tables:
     # if true: only export and create the specified columns
     all_columns: false
 
-    # mapping of Airtabe fields to SQL column names
+    # mapping of Airtable fields to SQL column names
     # used to specify field names, otherwise column names will be
     # "cleaned", removing non-alphanumeric characters and replacing
     # spaces with underscores (_)

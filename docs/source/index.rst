@@ -41,6 +41,7 @@ The general workflow for using ADBE:
 
 
 .. _workflow_airtable_setup:
+
 Airtable API Setup
 ~~~~~~~~~~~~~~~~~~
 
@@ -51,12 +52,14 @@ Write it down or save it somewhere. Airtable DB Export will look for API token i
 
 
 .. _workflow_config:
+
 Configuration
 ~~~~~~~~~~~~~
 Configure which tables you want to export, and how to set up different field -> column mappings.
 See the section on :ref:`config` for more.
 
 .. _workflow_schemas:
+
 Generate Schema Map
 ~~~~~~~~~~~~~~~~~~~
 
@@ -68,6 +71,7 @@ SQL tables and columns based on your configuration. By default `adbe` will read 
 ``$ adbe -c config.yml --schemas-file schemas-map.json generate-schema-map``
 
 .. _workflow_create_sql:
+
 Create Database DDL SQL
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -78,6 +82,7 @@ Once the ``schemas.json`` (the default name, but whatever you set `schemas_file`
 ``$ adbe -c config.yml --sql-dir sql create-sql``
 
 .. _workflow_create_db:
+
 Create Database
 ~~~~~~~~~~~~~~~
 
@@ -92,6 +97,7 @@ To override the database file path in the config (or if you did not set one) pas
 This can be useful for testing, for example.
 
 .. _workflow_download:
+
 Download Airtable Data
 ++++++++++++++++++++++
 
@@ -104,6 +110,7 @@ Again, to override the configured destination, pass ``--data-dir`` on the comman
 ``$ adbe -c config.yml --data-dir tmp_data download-json``
 
 .. _workflow_load_db:
+
 Load Database
 ++++++++++++++++++++++
 
@@ -122,7 +129,6 @@ Let's look at an `Example <example.html>`__.
    :maxdepth: 2
    :caption: Contents:
 
-   index
    install
    configuration
    cli

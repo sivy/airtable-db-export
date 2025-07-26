@@ -115,7 +115,7 @@ If you want to export `only` the specified columns, ignoring all others, set ``a
 
 Column mapping: ``columns`` is a mapping from Airtable field names to sql column names. If a field is not listed here and ``all_columns`` is not ``false``, the general cleaning rules will apply (non-alpha characters are removed, spaces are replced with underscores [``_``]).::
 
-      # mapping of Airtabe fields to SQL column names
+      # mapping of Airtable fields to SQL column names
       # used to specify field names, otherwise column names will be
       # "cleaned", removing non-alphanumeric characters and replacing
       # spaces with underscores (_)
