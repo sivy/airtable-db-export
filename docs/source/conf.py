@@ -8,6 +8,7 @@
 import os
 import sys
 
+sys.path.insert(0, os.path.abspath("../../src/"))
 sys.path.insert(0, os.path.abspath("../../src/airtable-db-export"))
 
 project = "Airtable DB Export"
