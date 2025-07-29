@@ -2,6 +2,7 @@ import json
 import re
 import typing as t
 from pathlib import Path
+import pprint
 
 if t.TYPE_CHECKING:
     from pyairtable import Api as ATApi
@@ -20,7 +21,6 @@ class ATYPES:
     MULTI_RECORD_LINK = "multipleRecordLinks"
     SINGLE_RECORD_LINK = "singleRecordLink"
     MULTI_LOOKUP = "multipleLookupValues"
-
     CHECKBOX = "checkbox"
     DATE_TIME = "dateTime"
     CURRENCY = "currency"
@@ -32,7 +32,6 @@ class ATYPES:
 
 
 SKIP_TYPES: list[str] = [
-    ATYPES.MULTI_LOOKUP,
     ATYPES.FORMULA,
     ATYPES.COUNT,
 ]
@@ -46,6 +45,7 @@ TYPEMAP: dict = {
     ATYPES.SINGLE_SELECT: "VARCHAR",
     ATYPES.MULTI_SELECT: "TEXT[]",
     ATYPES.MULTI_RECORD_LINK: "TEXT[]",
+    ATYPES.MULTI_LOOKUP: "TEXT[]",
     ATYPES.SINGLE_RECORD_LINK: "VARCHAR",
     ATYPES.CHECKBOX: "BOOLEAN",
     ATYPES.DATE_TIME: "TIMESTAMP",
@@ -101,6 +101,7 @@ def make_sql_schema(
     tablename: t.Any | None = tconf.get("table", atable.lower())
 
     bases = api_client.bases(force=True)  # get list of bases with all info
+
     base = [b for b in bases if b.id == baseid][0]
 
     table_schema: dict[str, t.Any] = {
@@ -112,7 +113,7 @@ def make_sql_schema(
 
     # will we use all reflected columns or just the one we
     # map out?
-    all_columns = tconf.get("all_columns", True)
+    all_columns: bool = tconf.get("all_columns", True)
 
     # build defs for SQL table/csv
     ## get schema for table
