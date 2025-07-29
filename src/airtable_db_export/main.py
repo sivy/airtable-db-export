@@ -3,12 +3,15 @@ import typing as t
 from pathlib import Path
 
 import click
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from pyairtable import Api as ATApi
 
 from airtable_db_export import at, db, utils
 
-load_dotenv()
+# find the local env file in the CWD,
+# not the library local path
+env_file: str = find_dotenv(usecwd=True)
+load_dotenv(env_file)
 
 
 def ensure_path(
@@ -243,7 +246,7 @@ tables:
     # if true: only export and create the specified columns
     all_columns: false
 
-    # mapping of Airtable fields to SQL column names
+    # mapping of Airtabe fields to SQL column names
     # used to specify field names, otherwise column names will be
     # "cleaned", removing non-alphanumeric characters and replacing
     # spaces with underscores (_)
