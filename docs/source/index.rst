@@ -39,7 +39,7 @@ The general workflow tasks when using ADBE:
 - :ref:`workflow_download`
 - :ref:`workflow_load_db`
 
-One thing to note: most of these tasks
+One thing to note: most of these tasks can be used independently depending on your needs. For example, actually generating the create DDL won't be needed if your configuration and source tables have not changed – you can just download the json data and load it.
 
 .. _workflow_airtable_setup:
 
@@ -67,9 +67,15 @@ Generate Schema Map
 Airtable DB Export will look for your API token in your environment, and will connect to Airtable to inspect the configured tables. Then it will create a mapping file between Airtable tables and fields to
 SQL tables and columns based on your configuration. By default `adbe` will read all fields in the target table, add the cleaned airtable name as the SQL table, and cleaned field names as columns. Configuring ``column_filters`` and ``tables:columns`` allows more control over which fields are exported and how they are named in the ``schemas.json`` and subsequent SQL database.
 
-``$ adbe -c config.yml generate-schema-map``
+.. code-block:: bash
 
-``$ adbe -c config.yml --schemas-file schemas-map.json generate-schema-map``
+   $ adbe -c config.yml generate-schema-map
+
+Override the ``--schemas-file`` location:
+
+.. code-block:: bash
+
+   $ adbe -c config.yml --schemas-file schemas-map.json generate-schema-map
 
 .. _workflow_create_sql:
 
@@ -78,9 +84,16 @@ Create Database DDL SQL
 
 Once the ``schemas.json`` (the default name, but whatever you set `schemas_file` to in the config file or passed in ``--schemas-file`` on the command line) is created, ADBE can be used with ``create-sql`` to generate the SQL DDL that will create the data model in the new database.
 
-``$ adbe -c config.yml create-sql``
+.. code-block:: bash
 
-``$ adbe -c config.yml --sql-dir sql create-sql``
+   $ adbe -c config.yml create-sql
+   
+
+Overriding the ``--sql-dir``:
+
+.. code-block:: bash
+
+   $ adbe -c config.yml --sql-dir sql create-sql
 
 .. _workflow_create_db:
 
@@ -89,11 +102,15 @@ Create Database
 
 After generating the SQL DDL to create the database tables, you can actually create the database.
 
-``$ adbe -c config.yml create-db``
+.. code-block:: bash
+
+   $ adbe -c config.yml create-db
 
 To override the database file path in the config (or if you did not set one) pass ``--db-file`` with the path:
 
-``$ adbe -c config.yml --db-file example.duckdb create-db``
+.. code-block:: bash
+
+   $ adbe -c config.yml --db-file example.duckdb create-db
 
 This can be useful for testing, for example.
 
@@ -104,11 +121,15 @@ Download Airtable Data
 
 To download all the data in your configured tables, use the `download-json` command:
 
-``$ adbe -c config.yml download-json``
+.. code-block:: bash
+
+   $ adbe -c config.yml download-json
 
 Again, to override the configured destination, pass ``--data-dir`` on the command line:
 
-``$ adbe -c config.yml --data-dir tmp_data download-json``
+.. code-block:: bash
+
+   $ adbe -c config.yml --data-dir tmp_data download-json
 
 .. _workflow_load_db:
 
@@ -117,7 +138,9 @@ Load Database
 
 Finally, to load all downloaded data:
 
-``$ adbe -c config.yml load-db``
+.. code-block:: bash
+
+   $ adbe -c config.yml load-db
 
 
 End to End Example
