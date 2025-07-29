@@ -29,7 +29,7 @@ Currently ``airtable-db-export`` creates a `DuckDB`_-native database, due to Duc
 Workflow
 --------
 
-The general workflow for using ADBE:
+The general workflow tasks when using ADBE:
 
 - :ref:`workflow_airtable_setup`
 - :ref:`workflow_config`
@@ -39,6 +39,7 @@ The general workflow for using ADBE:
 - :ref:`workflow_download`
 - :ref:`workflow_load_db`
 
+One thing to note: most of these tasks
 
 .. _workflow_airtable_setup:
 
@@ -133,3 +134,4 @@ Let's look at an `Example <example.html>`__.
    configuration
    cli
    example
+   license
