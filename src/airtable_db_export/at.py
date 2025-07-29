@@ -100,6 +100,7 @@ def make_sql_schema(
     atable: t.Any = tconf["airtable"]
     tablename: t.Any | None = tconf.get("table", atable.lower())
 
+    bases = api_client.bases(force=True)  # get list of bases with all info
     base = api_client.base(baseid)
 
     table_schema: dict[str, t.Any] = {
