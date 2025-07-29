@@ -101,7 +101,7 @@ def make_sql_schema(
     tablename: t.Any | None = tconf.get("table", atable.lower())
 
     bases = api_client.bases(force=True)  # get list of bases with all info
-    base = api_client.base(baseid)
+    base = [b for b in bases if b.id == baseid][0]
 
     table_schema: dict[str, t.Any] = {
         "base": baseid,
