@@ -1,6 +1,6 @@
 [project]
 name = "airtable-db-export"
-version = "0.2.6"
+version = "0.2.7"
 description = "Download data from Airtable to a SQL database."
 readme = "README.md"
 authors = [{ name = "Steve Ivy", email = "steveivy@gmail.com" }]
