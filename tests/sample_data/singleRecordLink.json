@@ -1,0 +1,11 @@
+{
+  "type": "multipleRecordLinks",
+  "id": "slink5bbbe631b",
+  "name": "Single Link",
+  "options": {
+    "inverseLinkFieldId": "fldWnCJlo2z6ttT8Y",
+    "isReversed": false,
+    "linkedTableId": "tblK6MZHez0ZvBChZ",
+    "prefersSingleRecordLink": true
+  }
+}

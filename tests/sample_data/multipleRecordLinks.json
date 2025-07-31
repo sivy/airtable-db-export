@@ -1,0 +1,10 @@
+{
+  "type": "multipleRecordLinks",
+  "id": "mlink5bbbe631b",
+  "name": "Multiple Links",
+  "options": {
+    "linkedTableId": "tblFgcHgyO7LlhgUe",
+    "isReversed": false,
+    "prefersSingleRecordLink": false
+  }
+}

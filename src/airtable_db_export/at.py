@@ -11,24 +11,27 @@ if t.TYPE_CHECKING:
 
 # Constants
 class ATYPES:
-    SINGLE_LINE_TEXT = "singleLineText"
-    MULTI_LINE_TEXT = "multilineText"
-    RICH_TEXT = "richText"
+    class ATYPE(str):
+        pass
 
-    SINGLE_SELECT = "singleSelect"
-    MULTI_SELECT = "multipleSelects"
+    SINGLE_LINE_TEXT: ATYPE = ATYPE("singleLineText")
+    MULTI_LINE_TEXT: ATYPE = ATYPE("multilineText")
+    RICH_TEXT: ATYPE = ATYPE("richText")
 
-    MULTI_RECORD_LINK = "multipleRecordLinks"
-    SINGLE_RECORD_LINK = "singleRecordLink"
-    MULTI_LOOKUP = "multipleLookupValues"
-    CHECKBOX = "checkbox"
-    DATE_TIME = "dateTime"
-    CURRENCY = "currency"
-    NUMBER = "number"
-    AUTO_NUMBER = "autoNumber"
-    FORMULA = "formula"
-    COUNT = "count"
-    EMAIL = "email"
+    SINGLE_SELECT: ATYPE = ATYPE("singleSelect")
+    MULTI_SELECT: ATYPE = ATYPE("multipleSelects")
+    MULTI_RECORD_LINK: ATYPE = ATYPE("multipleRecordLinks")
+    SINGLE_RECORD_LINK: ATYPE = ATYPE("singleRecordLink")
+    MULTI_LOOKUP: ATYPE = ATYPE("multipleLookupValues")
+    SINGLE_LOOKUP: ATYPE = ATYPE("singleLookupValue")
+    CHECKBOX: ATYPE = ATYPE("checkbox")
+    DATE_TIME: ATYPE = ATYPE("dateTime")
+    CURRENCY: ATYPE = ATYPE("currency")
+    NUMBER: ATYPE = ATYPE("number")
+    AUTO_NUMBER: ATYPE = ATYPE("autoNumber")
+    FORMULA: ATYPE = ATYPE("formula")
+    COUNT: ATYPE = ATYPE("count")
+    EMAIL: ATYPE = ATYPE("email")
 
 
 SKIP_TYPES: list[str] = [
@@ -38,15 +41,16 @@ SKIP_TYPES: list[str] = [
 
 
 # Map Airtable types to SQL types
-TYPEMAP: dict = {
+TYPEMAP: dict[ATYPES.ATYPE, str] = {
     ATYPES.SINGLE_LINE_TEXT: "VARCHAR",
     ATYPES.MULTI_LINE_TEXT: "VARCHAR",
     ATYPES.RICH_TEXT: "VARCHAR",
     ATYPES.SINGLE_SELECT: "VARCHAR",
     ATYPES.MULTI_SELECT: "TEXT[]",
     ATYPES.MULTI_RECORD_LINK: "TEXT[]",
-    ATYPES.MULTI_LOOKUP: "TEXT[]",
     ATYPES.SINGLE_RECORD_LINK: "VARCHAR",
+    ATYPES.MULTI_LOOKUP: "TEXT[]",
+    ATYPES.SINGLE_LOOKUP: "VARCHAR",
     ATYPES.CHECKBOX: "BOOLEAN",
     ATYPES.DATE_TIME: "TIMESTAMP",
     ATYPES.CURRENCY: "FLOAT",
@@ -85,6 +89,40 @@ def archive_schemas(api_client: "ATApi") -> None:
         json.dump(ref_schema, ref_file, indent=2)
 
 
+def get_sqlcol_and_type(
+    col_map: dict[str, str],
+    field: "FieldSchema",
+) -> tuple[str, str]:
+    """
+    Get sqlcol and sqltype
+    """
+    fieldtype: ATYPES.ATYPE = ATYPES.ATYPE(field.type)
+    sqlcol: str = col_map.get(field.name, clean_name(field.name))
+    # print(f"{fieldtype=} {TYPEMAP.get(fieldtype)=}")
+    sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+
+    ## identify richtext as markdown
+    if fieldtype == ATYPES.RICH_TEXT:
+        sqlcol = f"{sqlcol}_md"
+
+    elif fieldtype == ATYPES.MULTI_RECORD_LINK:
+        if field.options.prefers_single_record_link:  # type: ignore
+            ## identify single record links as "_id"
+            fieldtype = ATYPES.SINGLE_RECORD_LINK
+            sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+            sqlcol = f"{sqlcol}_id"
+        else:
+            ## identify multiple record links as "_ids"
+            sqlcol = f"{sqlcol}_ids"
+
+    elif fieldtype == ATYPES.MULTI_LOOKUP:
+        fieldtype = ATYPES.ATYPE(fieldtype)
+        # recurse to get the
+        sqlcol, sqltype = get_sqlcol_and_type(col_map, field)
+
+    return sqlcol, sqltype
+
+
 def make_sql_schema(
     api_client: "ATApi", tconf: t.Dict[str, t.Any], col_filters: list[str] | None = None
 ) -> t.Dict:
@@ -93,7 +131,6 @@ def make_sql_schema(
     build an intermediate structure that can be used to generate she SQL DDL to
     create tables and load data.
     """
-
     col_filters = col_filters or []
 
     baseid: t.Any = tconf["base"]
@@ -122,9 +159,6 @@ def make_sql_schema(
     # get Airtable table schema
     # print(api_client.base(base).tables())
     ts = base.table(atable).schema()
-    # REMOVE
-    # with open(f"{tablename}.json", "w") as f:
-    #     f.write(ts.model_dump_json())
 
     # initialize with id primary key
     # when loading data we will put the recordId here
@@ -141,13 +175,15 @@ def make_sql_schema(
     field: "FieldSchema"
 
     for field in ts.fields:
-        is_at_pk = field.id == ts.primary_field_id
+        is_at_pk: bool = field.id == ts.primary_field_id
 
         # skip conditions:
-        # - not the airtable PK (not the same as our PK, the recordId)
+        # - not the Airtable PK (not the same as our PK, the recordId)
         # - we aren't reflecting all the columns
         # - the field is not in the column map
-        skip = not is_at_pk and not all_columns and field.name not in col_map.keys()
+        skip: bool = (
+            not is_at_pk and not all_columns and field.name not in col_map.keys()
+        )
 
         # or if the column matches col_filters
         for pat in col_filters:
@@ -157,28 +193,14 @@ def make_sql_schema(
         if skip:
             continue
 
-        aname = field.name
-        atype = field.type
+        aname: str = field.name
+        atype: str = field.type
 
-        if atype in SKIP_TYPES:
+        if ATYPES.ATYPE(field.type) in SKIP_TYPES:
             continue
 
-        sqlcol: str = col_map.get(field.name, clean_name(field.name))
+        sqlcol, sqltype = get_sqlcol_and_type(col_map, field.name, field.type)
 
-        ## identify richtext as markdown
-        if atype == ATYPES.RICH_TEXT:
-            sqlcol = f"{sqlcol}_md"
-
-        if atype == ATYPES.MULTI_RECORD_LINK:
-            if field.options.prefers_single_record_link:  # type: ignore
-                ## identify single record links as "_id"
-                atype = ATYPES.SINGLE_RECORD_LINK
-                sqlcol = f"{sqlcol}_id"
-            else:
-                ## identify multiple record links as "_ids"
-                sqlcol = f"{sqlcol}_ids"
-
-        sqltype = TYPEMAP.get(atype, "VARCHAR")
         coldef: dict[str, str] = {
             "field": aname,
             "type": atype,
@@ -193,7 +215,9 @@ def make_sql_schema(
     return table_schema
 
 
-def make_schema_json(api_client: "ATApi", conf: dict, path: Path | str = "schemas.json") -> None:
+def make_schema_json(
+    api_client: "ATApi", conf: dict, path: Path | str = "schemas.json"
+) -> None:
     """
     Inspects the Airtable base schema and, for the tables listed in the config, generates the
     intermediate mappings from Airtable tables to SQL tables.

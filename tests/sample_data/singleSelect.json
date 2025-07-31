@@ -1,0 +1,14 @@
+{
+	"type": "singleSelect",
+	  "options": {
+		"choices": [
+		  {
+			"id": "sel5bbbe631b",
+			"name": "One",
+			"color": "blueLight2"
+		  }
+		]
+	  },
+	  "id": "ssel5bbbe631b",
+	  "name": "single select"
+}

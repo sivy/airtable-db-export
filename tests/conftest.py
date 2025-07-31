@@ -1,6 +1,24 @@
 """ """
 
 import pytest
+from pathlib import Path
+import json
+from pyairtable.models import schema as schemas
+
+
+def load_sample_data(path: Path | str):
+    path: Path = Path(path)
+    data = {}
+    for dirpath, dirnames, filenames in path.walk():
+        for fname in filenames:
+            d = Path(dirpath)
+            fname = Path(fname)
+            ftype = fname.stem
+            with open(d / fname, "r") as f:
+                loaded = json.load(f)
+                data[ftype] = loaded
+
+    return data
 
 
 @pytest.fixture
@@ -18,3 +36,13 @@ def test_config_file(tmp_path):
         - "(deleteme)"
         """)
     return config_path
+
+
+@pytest.fixture
+def load_field():
+    sample_data = load_sample_data("./tests/sample_data")
+
+    def _load_field(fixt):
+        return schemas.parse_field_schema(sample_data[fixt])
+
+    return _load_field
