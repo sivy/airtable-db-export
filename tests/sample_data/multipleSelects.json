@@ -1,14 +1,14 @@
 {
-	"type": "multipleSelects",
-	  "options": {
-		"choices": [
-		  {
-			"id": "sel5bbbe631b",
-			"name": "One",
-			"color": "blueLight2"
-		  }
-		]
-	  },
-	  "id": "msel5bbbe631b",
-	  "name": "multi select"
+  "type": "multipleSelects",
+  "options": {
+    "choices": [
+      {
+        "id": "sel5bbbe631b",
+        "name": "One",
+        "color": "blueLight2"
+      }
+    ]
+  },
+  "id": "msel5bbbe631b",
+  "name": "multi select"
 }

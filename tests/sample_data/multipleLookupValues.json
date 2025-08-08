@@ -1,0 +1,11 @@
+{
+  "type": "multipleLookupValues",
+  "options": {
+    "isValid": true,
+    "recordLinkFieldId": "5bbbe631b",
+    "fieldIdInLinkedTable": "fldI5gjLnq0RXUleV",
+    "result": null
+  },
+  "id": "fldwYZ0pPzf0uvyg7",
+  "name": "Lookup"
+}

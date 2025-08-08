@@ -2,6 +2,7 @@ import json
 import re
 import typing as t
 from pathlib import Path
+from pyairtable.models import schema as schemas
 import pprint
 
 if t.TYPE_CHECKING:
@@ -101,8 +102,11 @@ def get_sqlcol_and_type(
     # print(f"{fieldtype=} {TYPEMAP.get(fieldtype)=}")
     sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
 
+    print(f"{fieldtype=}")
+
     ## identify richtext as markdown
     if fieldtype == ATYPES.RICH_TEXT:
+        print("updating name for richtext")
         sqlcol = f"{sqlcol}_md"
 
     elif fieldtype == ATYPES.MULTI_RECORD_LINK:
@@ -117,9 +121,18 @@ def get_sqlcol_and_type(
 
     elif fieldtype == ATYPES.MULTI_LOOKUP:
         fieldtype = ATYPES.ATYPE(fieldtype)
-        # recurse to get the
-        sqlcol, sqltype = get_sqlcol_and_type(col_map, field)
+        # recurse to get the real type
+        # copy the data for the lookup target
+        # and apply the current field name
+        new_field_data = field.options.result.model_dump()
+        new_field_data["name"] = field.name
+        new_field_data["id"] = field.id
 
+        new_field = schemas.parse_field_schema(new_field_data)
+
+        sqlcol, sqltype = get_sqlcol_and_type(col_map, new_field)
+
+    print(f"returning {sqlcol}, {sqltype} for {field}")
     return sqlcol, sqltype
 
 
