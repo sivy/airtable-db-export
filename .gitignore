@@ -206,6 +206,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+.nova
+.DS_Store
 # Streamlit
 .streamlit/secrets.toml
 config.yml
