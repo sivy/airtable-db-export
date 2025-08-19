@@ -309,7 +309,7 @@ def load_airtable(
             else:
                 _value: t.Any = row["fields"].get(field, None)
                 if types_map[field] == ATYPES.SINGLE_RECORD_LINK:
-                    if _value is not None:
+                    if _value and _value is not None:  # check for empty list
                         _value = _value[0]
 
                 new_row[sqlcol] = _value
