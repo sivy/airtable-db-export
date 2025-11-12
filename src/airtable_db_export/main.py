@@ -443,7 +443,7 @@ def all(ctx):
     # generate sql schemas
     _create_sql(schemas_file, sql_dir)
     # fetch airtable data
-    _download_data_json(api_client, schemas_file, data_dir)
+    _download_data(api_client, schemas_file, data_dir, utils.save_table_json)
     # build db
     _create_db(schemas_file, db_file, sql_dir)
     # load db
