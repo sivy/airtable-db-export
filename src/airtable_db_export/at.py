@@ -104,10 +104,7 @@ def get_sqlcol_and_type(
     """
     fieldtype: ATYPES.ATYPE = ATYPES.ATYPE(field.type)
     sqlcol: str = col_map.get(field.name, clean_name(field.name))
-    logger.debug(f"{fieldtype=} {TYPEMAP.get(fieldtype)=}")
-
     sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
-    logger.debug(f"{sqltype=}")
 
     ## identify richtext as markdown
     if fieldtype == ATYPES.RICH_TEXT:
@@ -115,7 +112,13 @@ def get_sqlcol_and_type(
         sqlcol = f"{sqlcol}_md"
 
     elif fieldtype == ATYPES.MULTI_RECORD_LINK:
-        if field.options.prefers_single_record_link:  # type: ignore
+        prefers_single = getattr(
+            field.options,
+            "prefers_single_record_link",
+            getattr(field.options, "prefersSingleRecordLink", False),
+        )
+
+        if prefers_single:  # type: ignore
             ## identify single record links as "_id"
             fieldtype = ATYPES.SINGLE_RECORD_LINK
             sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
@@ -137,7 +140,6 @@ def get_sqlcol_and_type(
 
         sqlcol, sqltype = get_sqlcol_and_type(col_map, new_field)
 
-    print(f"returning {sqlcol}, {sqltype} for {field}")
     return sqlcol, sqltype
 
 
@@ -195,12 +197,23 @@ def make_sql_schema(
     for field in ts.fields:
         is_at_pk: bool = field.id == ts.primary_field_id
 
-        # skip conditions:
-        # - not the Airtable PK (not the same as our PK, the recordId)
-        # - we aren't reflecting all the columns
-        # - the field is not in the column map
-        skip: bool = not is_at_pk and not all_columns and field.name not in col_map.keys()
+        # skip condition:
+        # - is_valid in options is false
+        if getattr(field, "options", None):
+            # if no "is_valid" attribute, then it's valid
+            is_valid: bool = getattr(field.options, "is_valid", True)
+            if not is_valid:
+                continue
 
+        # skip conditions:
+        # - field is not the Airtable PK (not the same as our PK, the recordId)
+        # - AND we aren't reflecting all the columns
+        # - AND the field is not in the column map
+        skip: bool = (
+            not is_at_pk and not all_columns and field.name not in col_map.keys()
+        )
+
+        # skip conditions:
         # or if the column matches col_filters
         for pat in col_filters:
             if re.search(pat, field.name):
@@ -228,7 +241,11 @@ def make_sql_schema(
     return table_schema
 
 
-def make_schema_json(api_client: "ATApi", conf: dict, path: Path | str = "schemas.json") -> None:
+def make_schema_json(
+    api_client: "ATApi",
+    conf: dict,
+    path: Path | str = "schemas.json",
+) -> None:
     """
     Inspects the Airtable base schema and, for the tables listed in the config, generates the
     intermediate mappings from Airtable tables to SQL tables.
