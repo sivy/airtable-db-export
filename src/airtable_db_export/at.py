@@ -1,16 +1,26 @@
 import json
+import logging
 import re
 import typing as t
+from collections import defaultdict
 from pathlib import Path
+
 from pyairtable.models import schema as schemas
-import pprint
 
 if t.TYPE_CHECKING:
     from pyairtable import Api as ATApi
     from pyairtable.models.schema import FieldSchema
 
 
+logger = logging.getLogger(__name__)
+
+
 # Constants
+class EXPORTS:
+    JSON = "json"
+    CSV = "csv"
+
+
 class ATYPES:
     class ATYPE(str):
         pass
@@ -35,29 +45,24 @@ class ATYPES:
     EMAIL: ATYPE = ATYPE("email")
 
 
-SKIP_TYPES: list[str] = [
-    ATYPES.FORMULA,
-    ATYPES.COUNT,
-]
-
-
 # Map Airtable types to SQL types
 TYPEMAP: dict[ATYPES.ATYPE, str] = {
-    ATYPES.SINGLE_LINE_TEXT: "VARCHAR",
-    ATYPES.MULTI_LINE_TEXT: "VARCHAR",
-    ATYPES.RICH_TEXT: "VARCHAR",
-    ATYPES.SINGLE_SELECT: "VARCHAR",
-    ATYPES.MULTI_SELECT: "TEXT[]",
-    ATYPES.MULTI_RECORD_LINK: "TEXT[]",
-    ATYPES.SINGLE_RECORD_LINK: "VARCHAR",
-    ATYPES.MULTI_LOOKUP: "TEXT[]",
-    ATYPES.SINGLE_LOOKUP: "VARCHAR",
-    ATYPES.CHECKBOX: "BOOLEAN",
-    ATYPES.DATE_TIME: "TIMESTAMP",
-    ATYPES.CURRENCY: "FLOAT",
-    ATYPES.NUMBER: "INTEGER",
     ATYPES.AUTO_NUMBER: "INTEGER",
+    ATYPES.CHECKBOX: "BOOLEAN",
+    ATYPES.COUNT: "INTEGER",
+    ATYPES.CURRENCY: "FLOAT",
+    ATYPES.DATE_TIME: "TIMESTAMP",
     ATYPES.EMAIL: "VARCHAR",
+    ATYPES.MULTI_LINE_TEXT: "VARCHAR",
+    ATYPES.MULTI_LOOKUP: "TEXT[]",
+    ATYPES.MULTI_RECORD_LINK: "TEXT[]",
+    ATYPES.MULTI_SELECT: "TEXT[]",
+    ATYPES.NUMBER: "INTEGER",
+    ATYPES.RICH_TEXT: "VARCHAR",
+    ATYPES.SINGLE_LINE_TEXT: "VARCHAR",
+    ATYPES.SINGLE_LOOKUP: "VARCHAR",
+    ATYPES.SINGLE_RECORD_LINK: "VARCHAR",
+    ATYPES.SINGLE_SELECT: "VARCHAR",
 }
 
 
@@ -99,14 +104,14 @@ def get_sqlcol_and_type(
     """
     fieldtype: ATYPES.ATYPE = ATYPES.ATYPE(field.type)
     sqlcol: str = col_map.get(field.name, clean_name(field.name))
-    # print(f"{fieldtype=} {TYPEMAP.get(fieldtype)=}")
-    sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+    logger.debug(f"{fieldtype=} {TYPEMAP.get(fieldtype)=}")
 
-    print(f"{fieldtype=}")
+    sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+    logger.debug(f"{sqltype=}")
 
     ## identify richtext as markdown
     if fieldtype == ATYPES.RICH_TEXT:
-        print("updating name for richtext")
+        # rich text fields are markdown
         sqlcol = f"{sqlcol}_md"
 
     elif fieldtype == ATYPES.MULTI_RECORD_LINK:
@@ -194,9 +199,7 @@ def make_sql_schema(
         # - not the Airtable PK (not the same as our PK, the recordId)
         # - we aren't reflecting all the columns
         # - the field is not in the column map
-        skip: bool = (
-            not is_at_pk and not all_columns and field.name not in col_map.keys()
-        )
+        skip: bool = not is_at_pk and not all_columns and field.name not in col_map.keys()
 
         # or if the column matches col_filters
         for pat in col_filters:
@@ -209,10 +212,7 @@ def make_sql_schema(
         aname: str = field.name
         atype: str = field.type
 
-        if ATYPES.ATYPE(field.type) in SKIP_TYPES:
-            continue
-
-        sqlcol, sqltype = get_sqlcol_and_type(col_map, field.name, field.type)
+        sqlcol, sqltype = get_sqlcol_and_type(col_map, field)
 
         coldef: dict[str, str] = {
             "field": aname,
@@ -228,9 +228,7 @@ def make_sql_schema(
     return table_schema
 
 
-def make_schema_json(
-    api_client: "ATApi", conf: dict, path: Path | str = "schemas.json"
-) -> None:
+def make_schema_json(api_client: "ATApi", conf: dict, path: Path | str = "schemas.json") -> None:
     """
     Inspects the Airtable base schema and, for the tables listed in the config, generates the
     intermediate mappings from Airtable tables to SQL tables.
@@ -323,7 +321,7 @@ def save_table_json(
     path: str,
 ) -> None:
     """
-    Save table data to CSV file
+    Save table data to JSON file
 
     data: list of dictionaries with the data
     f: file object
@@ -332,3 +330,22 @@ def save_table_json(
 
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
+
+
+def save_table_csv(
+    data: t.List[dict],
+    path: str,
+) -> None:
+    """
+    Save table data to CSV file
+
+    data: list of dictionaries with the data
+    f: file object
+    """
+    import csv
+
+    with open(path, "w") as f:
+        writer = csv.DictWriter(f, fieldnames=data[0].keys())
+        writer.writeheader()
+        for row in data:
+            writer.writerow(row)
