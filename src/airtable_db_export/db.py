@@ -30,7 +30,6 @@ def bootstrap_db(
     """
     with dbconn(dbfile) as conn:
         for schema in schemas:
-            print(f"{dbfile}: creating {schema['sqltable']}")
             with open(f"{data_dir}/create_{schema['sqltable']}.sql", "r") as f:
                 conn.sql(f.read())
 
@@ -46,8 +45,9 @@ def make_table_create(schema: t.Dict[str, t.Any]) -> str:
     stmt: str = f"CREATE TABLE IF NOT EXISTS {table}\n"
     coldefs: list[str] = []
     for col in schema["columns"]:
-        xtra: str = col.get("extra", "")
-        coldefs.append(f"{col['sqlcolumn']} {col['sqltype']} {xtra}")
+        if "sqlcolumn" in col:
+            xtra: str = col.get("extra", "")
+            coldefs.append(f"{col['sqlcolumn']} {col['sqltype']} {xtra}")
 
     return stmt + "(" + ",\n".join(coldefs) + ");"
 
