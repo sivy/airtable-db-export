@@ -323,12 +323,13 @@ def download_data(ctx, formats: list):
 
     base_dir = ctx.obj["base_dir"]
 
+    schemas_file = ctx.obj["schemas_file"]
+
     fmt_funcmap: dict = {
         "json": utils.save_table_json,
         "csv": utils.save_table_csv,
     }
 
-    schemas_file = ctx.obj["schemas_file"]
     # fail if schema mapping file has not been created
     schemas_file = ensure_path(schemas_file, base_dir=base_dir, must_exist=True)
 
