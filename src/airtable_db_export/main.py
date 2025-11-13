@@ -188,7 +188,11 @@ def cli(
     }
 
 
-def _generate_schema_map(api_client: ATApi, config: dict, schemas_file: Path | str) -> None:
+def _generate_schema_map(
+    api_client: ATApi,
+    config: dict,
+    schemas_file: Path | str,
+) -> None:
     """
     Generate the intermediate mappings from Airtable tables to SQL tables based
     on the config.
@@ -274,43 +278,70 @@ def generate_schema_map(ctx):
     _generate_schema_map(api_client, config, schemas_file)
 
 
-def _download_data_json(api_client: ATApi, schemas_file: Path | str, data_dir: Path | str) -> None:
+def _download_data(
+    api_client: ATApi,
+    schemas_file: Path | str,
+    data_dir: Path | str,
+    save_func: t.Callable,
+) -> None:
     """
-    Load data from tables in Airtable to JSON in DATADIR.
+    Download data from the tables in Airtable defined in <schemas_file> and save
+    in <date_dir> using <save_func>.
     """
-    click.echo("Downloading data from Airtable...")
 
     schemas: list[dict[str, t.Any]] = utils.load_schemas(schemas_file)
     for schema in schemas:
-        click.echo(f"Loading data from Base: {schema['base']} Table: {schema['airtable']}...")
+        click.echo(
+            f"Loading data from Base: {schema['base']} Table: {schema['airtable']}..."
+        )
         data: list[dict[str, t.Any]] = at.load_airtable(api_client, schema)
-        click.echo(f"Saving data to {schema['sqltable']}.json...")
-        at.save_table_json(data, f"{data_dir}/{schema['sqltable']}.json")
-
-    click.echo("Downloading data complete")
+        click.echo(f"Saving data to {schema['sqltable']}...")
+        save_func(data, f"{data_dir}/{schema['sqltable']}")
 
 
 @cli.command(
-    "download-json",
+    "download-data",
     help="""
-Download Airtable data as JSON. Files will be stored in <data_dir>.
+Download Airtable data. Files will be stored in <data_dir>.
 """,
 )
+@click.option(
+    "-f",
+    "--format",
+    "formats",
+    type=click.Choice(["json", "csv"]),
+    default=["json"],
+    multiple=True,
+    help="Formats to export downloaded data as.",
+)
 @click.pass_context
-def download_data_json(ctx):
-    """ """
+def download_data(ctx, formats: list):
+    """
+    Download data from Airtable and save as JSON or CSV
+    for archive or import into another tool.
+    """
     api_client = ctx.obj["client"]
 
     base_dir = ctx.obj["base_dir"]
 
     schemas_file = ctx.obj["schemas_file"]
+
+    fmt_funcmap: dict = {
+        "json": utils.save_table_json,
+        "csv": utils.save_table_csv,
+    }
+
     # fail if schema mapping file has not been created
     schemas_file = ensure_path(schemas_file, base_dir=base_dir, must_exist=True)
 
     data_dir = ctx.obj["data_dir"]
     data_dir = ensure_path(data_dir, base_dir=base_dir)
 
-    _download_data_json(api_client, schemas_file, data_dir)
+    click.echo("Downloading data from Airtable...")
+    for fmt in formats:
+        save_func = fmt_funcmap[fmt]
+        _download_data(api_client, schemas_file, data_dir, save_func)
+    click.echo("Downloading data complete")
 
 
 def _create_sql(schemas_file: Path | str, sql_dir: Path | str) -> None:
@@ -342,7 +373,11 @@ def create_sql(ctx):
     _create_sql(schemas_file, sql_dir)
 
 
-def _create_db(schemas_file: Path | str, db_file: Path | str, sql_dir: Path | str) -> None:
+def _create_db(
+    schemas_file: Path | str,
+    db_file: Path | str,
+    sql_dir: Path | str,
+) -> None:
     """ """
     click.echo(f"Create database in {db_file}")
 
@@ -369,7 +404,6 @@ def create_db(ctx):
 
     db_file = ctx.obj["db_file"]
     db_file = ensure_path(db_file, parents_only=True, base_dir=base_dir)
-    print(f"db_file: {db_file.absolute()}")
 
     _create_db(schemas_file, db_file, sql_dir)
 
@@ -400,7 +434,9 @@ def load_db(ctx):
     data_dir = ensure_path(data_dir, base_dir=base_dir, must_exist=True)
 
     db_file = ctx.obj["db_file"]
-    db_file = ensure_path(db_file, parents_only=True, base_dir=base_dir, must_exist=True)
+    db_file = ensure_path(
+        db_file, parents_only=True, base_dir=base_dir, must_exist=True
+    )
 
     _load_db(db_file, schemas_file, data_dir)
 
@@ -432,7 +468,7 @@ def all(ctx):
     # generate sql schemas
     _create_sql(schemas_file, sql_dir)
     # fetch airtable data
-    _download_data_json(api_client, schemas_file, data_dir)
+    _download_data(api_client, schemas_file, data_dir, utils.save_table_json)
     # build db
     _create_db(schemas_file, db_file, sql_dir)
     # load db
