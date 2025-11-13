@@ -302,7 +302,7 @@ def _download_data(
 @cli.command(
     "download-data",
     help="""
-Download Airtable data as JSON. Files will be stored in <data_dir>.
+Download Airtable data. Files will be stored in <data_dir>.
 """,
 )
 @click.option(
