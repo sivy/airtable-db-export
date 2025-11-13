@@ -404,7 +404,6 @@ def create_db(ctx):
 
     db_file = ctx.obj["db_file"]
     db_file = ensure_path(db_file, parents_only=True, base_dir=base_dir)
-    print(f"db_file: {db_file.absolute()}")
 
     _create_db(schemas_file, db_file, sql_dir)
 

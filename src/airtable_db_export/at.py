@@ -31,18 +31,22 @@ class ATYPES:
 
     SINGLE_SELECT: ATYPE = ATYPE("singleSelect")
     MULTI_SELECT: ATYPE = ATYPE("multipleSelects")
+
     MULTI_RECORD_LINK: ATYPE = ATYPE("multipleRecordLinks")
     SINGLE_RECORD_LINK: ATYPE = ATYPE("singleRecordLink")
     MULTI_LOOKUP: ATYPE = ATYPE("multipleLookupValues")
     SINGLE_LOOKUP: ATYPE = ATYPE("singleLookupValue")
+
     CHECKBOX: ATYPE = ATYPE("checkbox")
     DATE_TIME: ATYPE = ATYPE("dateTime")
     CURRENCY: ATYPE = ATYPE("currency")
     NUMBER: ATYPE = ATYPE("number")
     AUTO_NUMBER: ATYPE = ATYPE("autoNumber")
+    EMAIL: ATYPE = ATYPE("email")
+
+    # derived types
     FORMULA: ATYPE = ATYPE("formula")
     COUNT: ATYPE = ATYPE("count")
-    EMAIL: ATYPE = ATYPE("email")
 
 
 # Map Airtable types to SQL types
@@ -157,10 +161,7 @@ def make_sql_schema(
     atable: t.Any = tconf["airtable"]
     tablename: t.Any | None = tconf.get("table", atable.lower())
 
-    bases = api_client.bases(force=True)  # get list of bases with all info
-
-    base = [b for b in bases if b.id == baseid][0]
-
+    base = api_client.base(baseid)
     table_schema: dict[str, t.Any] = {
         "base": baseid,
         "basename": base.name,
@@ -189,21 +190,17 @@ def make_sql_schema(
             "sqlcolumn": "id",
             "sqltype": "varchar",
             "extra": "primary key",
+            "description": "Airtable-DB-Export primary key - from recordId",
         }
     ]
 
     field: "FieldSchema"
 
-    for field in ts.fields:
-        is_at_pk: bool = field.id == ts.primary_field_id
+    fields_by_id = {f.id: f.name for f in ts.fields}
 
-        # skip condition:
-        # - is_valid in options is false
-        if getattr(field, "options", None):
-            # if no "is_valid" attribute, then it's valid
-            is_valid: bool = getattr(field.options, "is_valid", True)
-            if not is_valid:
-                continue
+    for field in ts.fields:
+        additional = {}
+        is_at_pk = field.id == ts.primary_field_id
 
         # skip conditions:
         # - field is not the Airtable PK (not the same as our PK, the recordId)
@@ -227,11 +224,59 @@ def make_sql_schema(
 
         sqlcol, sqltype = get_sqlcol_and_type(col_map, field)
 
+        sqlcol: str = col_map.get(field.name, clean_name(field.name))
+
+        description = field.description
+
+        ## identify richtext as markdown
+        if atype == ATYPES.RICH_TEXT:
+            sqlcol = f"{sqlcol}_md"
+
+        # store formulas with those columns
+        if atype == ATYPES.FORMULA:
+            # TODO: Inspect field.result.type to get the right sqlcol type
+
+            formula = field.options.formula
+
+            if "{" in formula:
+                matches = re.findall(r"{([\w]+)}", formula)
+                for fid in matches:
+                    if fid in fields_by_id:
+                        # substitute field names for field ids
+                        formula = re.sub(
+                            f"{{{fid}}}", f'"{fields_by_id[fid]}"', formula
+                        )
+                        # remove newlines
+                        formula = formula.replace("\n", "")
+
+                        # compact space
+                        formula = re.sub(r"[\s]+", "", formula)
+
+                        # neatify commas
+                        formula = re.sub(r",([\S])", r", \1", formula)
+
+                        # fix double quotation marks
+                        formula = re.sub(r"\"", r"'", formula)
+
+            additional["formula"] = formula
+
+        if atype == ATYPES.MULTI_RECORD_LINK:
+            if field.options.prefers_single_record_link:  # type: ignore
+                ## identify single record links as "_id"
+                atype = ATYPES.SINGLE_RECORD_LINK
+                sqlcol = f"{sqlcol}_id"
+            else:
+                ## identify multiple record links as "_ids"
+                sqlcol = f"{sqlcol}_ids"
+
+        sqltype = TYPEMAP.get(atype, "VARCHAR")
         coldef: dict[str, str] = {
             "field": aname,
             "type": atype,
+            "description": description,
             "sqlcolumn": sqlcol,
             "sqltype": sqltype,
+            **additional,
         }
 
         coldefs.append(coldef)
@@ -272,6 +317,7 @@ def make_schema_json(
       TEXT[] column and `_ids` will be appended to the sql_column name
     - Linked Record fields with "allow multiple" NOT selected will be converted to a
       VARCHAR column and `_id` will be appended to the sql_column name
+    - Formula fields will add a "formula" entry to the dcolumn def for reference
 
 
     See at.ATYPES and at.TYPEMAP for more detail.
@@ -324,7 +370,7 @@ def load_airtable(
             else:
                 _value: t.Any = row["fields"].get(field, None)
                 if types_map[field] == ATYPES.SINGLE_RECORD_LINK:
-                    if _value and _value is not None:  # check for empty list
+                    if _value and _value is not None:
                         _value = _value[0]
 
                 new_row[sqlcol] = _value
