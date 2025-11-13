@@ -312,6 +312,7 @@ Download Airtable data as JSON. Files will be stored in <data_dir>.
     type=click.Choice(["json", "csv"]),
     default=["json"],
     multiple=True,
+    help="Formats to export downloaded data as.",
 )
 @click.pass_context
 def download_data(ctx, formats: list):
