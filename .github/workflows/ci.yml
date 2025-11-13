@@ -1,5 +1,7 @@
 name: CI
 
+on: push
+
 env:
   FORCE_COLOR: "1" # Make tools pretty.
 
