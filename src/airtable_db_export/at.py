@@ -93,6 +93,11 @@ def clean_name(name: str):
     return name
 
 
+def make_id(col: str, pl=False):
+    sfx = "_ids" if pl else "_id"
+    return f"{col}{sfx}" if not col.endswith(sfx) else col
+
+
 def archive_schemas(api_client: "ATApi") -> None:
     """
     Archive the schemas of all Airtable bases to a JSON file.
@@ -117,7 +122,6 @@ def get_sqlcol_and_type(
     fieldtype: ATYPES.ATYPE = ATYPES.ATYPE(field.type)
 
     sqlconfig: str | dict = col_map.get(field.name, clean_name(field.name))
-    print(sqlconfig)
 
     if type(sqlconfig) is dict:
         # if column config is a dict, it MUST contain both sqlcol and sqltype
@@ -127,13 +131,10 @@ def get_sqlcol_and_type(
             )
         sqlcol: str = sqlconfig["sqlcol"]
         sqltype = sqlconfig["sqltype"]
-        print("using spec", sqlcol, sqltype)
         return sqlcol, sqltype
     else:
         sqlcol: str = col_map.get(field.name, clean_name(field.name))
         sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
-
-    print("not using spec", sqlcol, sqltype)
 
     ## identify richtext as markdown
     if fieldtype == ATYPES.RICH_TEXT:
@@ -151,10 +152,10 @@ def get_sqlcol_and_type(
             ## identify single record links as "_id"
             fieldtype = ATYPES.SINGLE_RECORD_LINK
             sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
-            sqlcol = f"{sqlcol}_id"
+            sqlcol = make_id(sqlcol)
         else:
             ## identify multiple record links as "_ids"
-            sqlcol = f"{sqlcol}_ids"
+            sqlcol = make_id(sqlcol, pl=True)
 
     elif fieldtype == ATYPES.MULTI_LOOKUP:
         fieldtype = ATYPES.ATYPE(fieldtype)
@@ -203,7 +204,6 @@ def make_sql_schema(
     col_map: dict[str, t.Any] = tconf.get("columns", {})
 
     # get Airtable table schema
-    # print(api_client.base(base).tables())
     ts = base.table(atable).schema()
 
     # initialize with id primary key
@@ -289,10 +289,10 @@ def make_sql_schema(
             if field.options.prefers_single_record_link:  # type: ignore
                 ## identify single record links as "_id"
                 atype = ATYPES.SINGLE_RECORD_LINK
-                sqlcol = f"{sqlcol}_id"
+                sqlcol = make_id(sqlcol)
             else:
                 ## identify multiple record links as "_ids"
-                sqlcol = f"{sqlcol}_ids"
+                sqlcol = make_id(sqlcol, pl=True)
 
         # sqltype = TYPEMAP.get(atype, "VARCHAR")
         coldef: dict[str, str] = {
@@ -375,11 +375,14 @@ def load_airtable(
     kwargs: dict[str, t.Any] = {}
     base: str = schema["base"]
     table = schema["airtable"]
+    if view := schema.get("view"):
+        kwargs["view"] = view
 
     # load table
     table = at_client.table(base, table)
 
     # get all records
+    # will use a view if specified in the config
     results = table.all(**kwargs)
 
     types_map: dict[str, str] = {c["field"]: c["type"] for c in schema["columns"]}
@@ -394,7 +397,6 @@ def load_airtable(
                 new_row["id"] = row["id"]
             else:
                 _value: t.Any = row["fields"].get(field, None)
-                print(field, types_map[field], _value, type(_value))
                 if types_map[field] in REDUCE_LIST_TYPES:
                     if _value and _value is not None:
                         if type(_value) is list:
