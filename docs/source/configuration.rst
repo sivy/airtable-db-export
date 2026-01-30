@@ -122,6 +122,17 @@ Column mapping: ``columns`` is a mapping from Airtable field names to sql column
       columns:
          "Name": name
 
+Alternatively, a column config can be a dictionary with two keys: ``sqlcol`` and ``sqltype``. These will override any automatic column and type introspection and use this column and type.::
+
+      columns:
+        "Score":
+            # use FLOAT, not VARCHAR
+            sqlcol: score
+            sqltype: FLOAT
+
+.. IMPORTANT::
+   When forcing sql column types, be sure that the source data from Airtable will map cleanly to that type or loading data (`adbe [OPTIONS] load-db`) will fail with errors.
+
 Mapping Linked Records fields
 -----------------------------
 

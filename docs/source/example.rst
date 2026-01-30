@@ -72,7 +72,7 @@ command created.
     # completely ignore Airtable fields matching these
     # regular expressions
     column_filters:
-    - " copy$"
+      - " copy$"
 
     tables:
     # NOTE: any tables that need to be related by ID need to come from the
@@ -81,19 +81,17 @@ command created.
     # bases need to be identified by ID, found in the Airtable URL starting
     # with "app"
     - base: appRandomStringBaseID
-        # tables can be identified by name
-        airtable: My Table
-        # name of the SQL table to create
-        table: my_table
-        # if true: only export and create the specified columns
-        all_columns: false
-
-        # mapping of Airtable fields to SQL column names
-        # used to specify field names, otherwise column names will be
-        # "cleaned", removing non-alphanumeric characters and replacing
-        # spaces with underscores (_)
-        columns:
-        # links
+      # tables can be identified by name
+      airtable: My Table
+      # name of the SQL table to create
+      table: my_table
+      # if true: only export and create the specified columns
+      all_columns: false
+      # mapping of Airtable fields to SQL column names
+      # used to specify field names, otherwise column names will be
+      # "cleaned", removing non-alphanumeric characters and replacing
+      # spaces with underscores (_)
+      columns:
         "Name": name
 
 .. _example_update_config:
@@ -116,10 +114,9 @@ config, and start updating the tables for our sample app.
       # "cleaned", removing non-alphanumeric characters and replacing
       # spaces with underscores (_)
       columns:
-      # links
-      "Name": name
-      "Street Address": street_address
-      "State": state
+        "Name": name
+        "Street Address": street_address
+        "State": state
 
     - base: <app id>
         # tables can be identified by name
@@ -143,64 +140,64 @@ Then take a look at the file:
 
 .. code-block:: JSON
 
-    [
-      {
-          "base": "app65Q3AdZDRc3C71",
-          "airtable": "Properties",
-          "sqltable": "properties",
-          "columns": [
-            {
-                "field": null,
-                "type": null,
-                "sqlcolumn": "id",
-                "sqltype": "varchar",
-                "extra": "primary key"
-            },
-            {
-                "field": "Name",
-                "type": "singleLineText",
-                "sqlcolumn": "name",
-                "sqltype": "VARCHAR"
-            },
-            {
-                "field": "Street Address",
-                "type": "multilineText",
-                "sqlcolumn": "street_address",
-                "sqltype": "VARCHAR"
-            },
-            {
-                "field": "State",
-                "type": "singleLineText",
-                "sqlcolumn": "state",
-                "sqltype": "VARCHAR"
-            },
-            {
-                "field": "Zip Code",
-                "type": "singleLineText",
-                "sqlcolumn": "zip_code",
-                "sqltype": "VARCHAR"
-            },
-            {
-                "field": "Home Phone",
-                "type": "phoneNumber",
-                "sqlcolumn": "home_phone",
-                "sqltype": "VARCHAR"
-            },
-            {
-                "field": "Notes",
-                "type": "multilineText",
-                "sqlcolumn": "notes_md",
-                "sqltype": "VARCHAR"
-            },
-            {
-                "field": "Residents",
-                "type": "multipleRecordLinks",
-                "sqlcolumn": "residents_ids",
-                "sqltype": "TEXT[]"
-            }
-          ]
-        }
-      ]
+   [
+     {
+         "base": "app65Q3AdZDRc3C71",
+         "airtable": "Properties",
+         "sqltable": "properties",
+         "columns": [
+           {
+               "field": null,
+               "type": null,
+               "sqlcolumn": "id",
+               "sqltype": "varchar",
+               "extra": "primary key"
+           },
+           {
+               "field": "Name",
+               "type": "singleLineText",
+               "sqlcolumn": "name",
+               "sqltype": "VARCHAR"
+           },
+           {
+               "field": "Street Address",
+               "type": "multilineText",
+               "sqlcolumn": "street_address",
+               "sqltype": "VARCHAR"
+           },
+           {
+               "field": "State",
+               "type": "singleLineText",
+               "sqlcolumn": "state",
+               "sqltype": "VARCHAR"
+           },
+           {
+               "field": "Zip Code",
+               "type": "singleLineText",
+               "sqlcolumn": "zip_code",
+               "sqltype": "VARCHAR"
+           },
+           {
+               "field": "Home Phone",
+               "type": "phoneNumber",
+               "sqlcolumn": "home_phone",
+               "sqltype": "VARCHAR"
+           },
+           {
+               "field": "Notes",
+               "type": "multilineText",
+               "sqlcolumn": "notes_md",
+               "sqltype": "VARCHAR"
+           },
+           {
+               "field": "Residents",
+               "type": "multipleRecordLinks",
+               "sqlcolumn": "residents_ids",
+               "sqltype": "TEXT[]"
+           }
+         ]
+       }
+     ]
 
 Some notes on the file ABDW produced:
 

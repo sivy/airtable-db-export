@@ -69,6 +69,14 @@ TYPEMAP: dict[ATYPES.ATYPE, str] = {
     ATYPES.SINGLE_SELECT: "VARCHAR",
 }
 
+REDUCE_LIST_TYPES = [
+    ATYPES.SINGLE_RECORD_LINK,
+    ATYPES.FORMULA,
+    ATYPES.MULTI_LOOKUP,
+    ATYPES.MULTI_RECORD_LINK,
+    ATYPES.MULTI_SELECT,
+]
+
 
 ###
 def clean_name(name: str):
@@ -100,15 +108,32 @@ def archive_schemas(api_client: "ATApi") -> None:
 
 
 def get_sqlcol_and_type(
-    col_map: dict[str, str],
+    col_map: dict[str, t.Any],
     field: "FieldSchema",
 ) -> tuple[str, str]:
     """
     Get sqlcol and sqltype
     """
     fieldtype: ATYPES.ATYPE = ATYPES.ATYPE(field.type)
-    sqlcol: str = col_map.get(field.name, clean_name(field.name))
-    sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+
+    sqlconfig: str | dict = col_map.get(field.name, clean_name(field.name))
+    print(sqlconfig)
+
+    if type(sqlconfig) is dict:
+        # if column config is a dict, it MUST contain both sqlcol and sqltype
+        if not ("sqlcol" in sqlconfig and "sqltype" in sqlconfig):
+            raise Exception(
+                f"Column config {sqlconfig} requires both sqlcol and sqltype."
+            )
+        sqlcol: str = sqlconfig["sqlcol"]
+        sqltype = sqlconfig["sqltype"]
+        print("using spec", sqlcol, sqltype)
+        return sqlcol, sqltype
+    else:
+        sqlcol: str = col_map.get(field.name, clean_name(field.name))
+        sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+
+    print("not using spec", sqlcol, sqltype)
 
     ## identify richtext as markdown
     if fieldtype == ATYPES.RICH_TEXT:
@@ -175,7 +200,7 @@ def make_sql_schema(
 
     # build defs for SQL table/csv
     ## get schema for table
-    col_map: dict[str, str] = tconf.get("columns", {})
+    col_map: dict[str, t.Any] = tconf.get("columns", {})
 
     # get Airtable table schema
     # print(api_client.base(base).tables())
@@ -224,7 +249,7 @@ def make_sql_schema(
 
         sqlcol, sqltype = get_sqlcol_and_type(col_map, field)
 
-        sqlcol: str = col_map.get(field.name, clean_name(field.name))
+        # sqlcol: str = col_map.get(field.name, clean_name(field.name))
 
         description = field.description
 
@@ -269,7 +294,7 @@ def make_sql_schema(
                 ## identify multiple record links as "_ids"
                 sqlcol = f"{sqlcol}_ids"
 
-        sqltype = TYPEMAP.get(atype, "VARCHAR")
+        # sqltype = TYPEMAP.get(atype, "VARCHAR")
         coldef: dict[str, str] = {
             "field": aname,
             "type": atype,
@@ -369,9 +394,11 @@ def load_airtable(
                 new_row["id"] = row["id"]
             else:
                 _value: t.Any = row["fields"].get(field, None)
-                if types_map[field] == ATYPES.SINGLE_RECORD_LINK:
+                print(field, types_map[field], _value, type(_value))
+                if types_map[field] in REDUCE_LIST_TYPES:
                     if _value and _value is not None:
-                        _value = _value[0]
+                        if type(_value) is list:
+                            _value = _value[0]
 
                 new_row[sqlcol] = _value
         table_data.append(new_row)
