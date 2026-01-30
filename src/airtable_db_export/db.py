@@ -73,6 +73,9 @@ def load_db(
 ) -> None:
     with dbconn(dbfile) as conn:
         for schema in schemas:
+            print(
+                f"Loading table {schema['sqltable']} from {data_dir}/{schema['sqltable']}.json"
+            )
             sql: str = (
                 f"INSERT INTO {schema['sqltable']}\n"
                 f"SELECT * "
