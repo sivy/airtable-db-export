@@ -96,7 +96,7 @@ def make_id(col: str, pl=False):
     return f"{col}{sfx}" if not col.endswith(sfx) else col
 
 
-def archive_schemas(api_client: "ATApi") -> None:
+def archive_schemas(api_client: "ATApi", filename: str) -> None:
     """
     Archive the schemas of all Airtable bases to a JSON file.
     """
@@ -106,7 +106,7 @@ def archive_schemas(api_client: "ATApi") -> None:
     for base in api_client.bases():
         ref_schema[base.id] = base.schema().model_dump()
 
-    with open("reference_schemas.json", "w") as ref_file:
+    with open(filename, "w") as ref_file:
         json.dump(ref_schema, ref_file, indent=2)
 
 
