@@ -211,3 +211,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 config.yml
+
+# generated in testing
+generated/*
+reference_schemas.json

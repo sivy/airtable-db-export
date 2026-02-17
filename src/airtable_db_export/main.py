@@ -201,6 +201,19 @@ def _generate_schema_map(
     at.make_schema_json(api_client, config, schemas_file)
 
 
+@cli.command("reference-schemas")
+@click.argument(
+    "filename",
+    default="reference_schemas.json",
+)
+@click.pass_context
+def archive_schemas(ctx, filename: str = None):
+    print("ref schemas")
+    api_client = ctx.obj["client"]
+
+    at.archive_schemas(api_client, filename)
+
+
 @cli.command(
     "create-config",
     help="Generate a starting config file that you can adapt for your needs.",
