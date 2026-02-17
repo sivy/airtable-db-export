@@ -17,7 +17,6 @@ def load_sample_data(path: Path | str):
             fname = Path(fname)
             ftype = fname.stem
             with open(d / fname, "r") as f:
-                print(d / fname)
                 loaded = json.load(f)
                 data[ftype] = loaded
 

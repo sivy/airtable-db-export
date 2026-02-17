@@ -1,10 +1,11 @@
 {
   "type": "multipleRecordLinks",
   "id": "mlink5bbbe631b",
-  "name": "Multiple Links",
+  "name": "multiple links",
   "options": {
     "linkedTableId": "tblFgcHgyO7LlhgUe",
     "isReversed": false,
-    "prefersSingleRecordLink": false
+    "prefersSingleRecordLink": false,
+    "prefers_single_record_link": false
   }
 }

@@ -2,7 +2,6 @@ import json
 import logging
 import re
 import typing as t
-from collections import defaultdict
 from pathlib import Path
 
 from pyairtable.models import schema as schemas
@@ -67,7 +66,7 @@ TYPEMAP: dict[ATYPES.ATYPE, str] = {
     ATYPES.SINGLE_SELECT: "VARCHAR",
 }
 
-REDUCE_LIST_TYPES = [
+LIST_TYPES = [
     ATYPES.SINGLE_RECORD_LINK,
     ATYPES.FORMULA,
     ATYPES.MULTI_LOOKUP,
@@ -113,14 +112,19 @@ def archive_schemas(api_client: "ATApi", filename: str) -> None:
 def get_sqlcol_and_type(
     col_map: dict[str, t.Any],
     field: "FieldSchema",
-) -> tuple[str, str]:
+) -> tuple[str, str, bool]:
     """
     Get sqlcol and sqltype
+
+    Returns tuple of (sqlcol: str, sqltype: str, user_specified: bool)
+
+    If userspecified is True, callers should not modify values intended
+    for this field.
     """
     fieldtype: ATYPES.ATYPE = ATYPES.ATYPE(field.type)
 
     sqlconfig: str | dict = col_map.get(field.name, clean_name(field.name))
-
+    user_specified = False
     if type(sqlconfig) is dict:
         # if column config is a dict, it MUST contain both sqlcol and sqltype
         if not ("sqlcol" in sqlconfig and "sqltype" in sqlconfig):
@@ -129,7 +133,7 @@ def get_sqlcol_and_type(
             )
         sqlcol: str = sqlconfig["sqlcol"]
         sqltype = sqlconfig["sqltype"]
-        return sqlcol, sqltype
+        return sqlcol, sqltype, True
     else:
         sqlcol: str = col_map.get(field.name, clean_name(field.name))
         sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
@@ -160,15 +164,15 @@ def get_sqlcol_and_type(
         # recurse to get the real type
         # copy the data for the lookup target
         # and apply the current field name
-        new_field_data = field.options.result.model_dump()
-        new_field_data["name"] = field.name
-        new_field_data["id"] = field.id
+        target_field_data = field.options.result.model_dump()
+        target_field_data["name"] = field.name
+        target_field_data["id"] = field.id
 
-        new_field = schemas.parse_field_schema(new_field_data)
+        target_field = schemas.parse_field_schema(target_field_data)
 
-        sqlcol, sqltype = get_sqlcol_and_type(col_map, new_field)
+        sqlcol, sqltype, user_specified = get_sqlcol_and_type(col_map, target_field)
 
-    return sqlcol, sqltype
+    return sqlcol, sqltype, user_specified
 
 
 def make_sql_schema(
@@ -245,9 +249,7 @@ def make_sql_schema(
         aname: str = field.name
         atype: str = field.type
 
-        sqlcol, sqltype = get_sqlcol_and_type(col_map, field)
-
-        # sqlcol: str = col_map.get(field.name, clean_name(field.name))
+        sqlcol, sqltype, user_specified = get_sqlcol_and_type(col_map, field)
 
         description = field.description
 
@@ -384,23 +386,38 @@ def load_airtable(
     results = table.all(**kwargs)
 
     types_map: dict[str, str] = {c["field"]: c["type"] for c in schema["columns"]}
-    cols_map: dict[str, str] = {c["field"]: c["sqlcolumn"] for c in schema["columns"]}
+    col_map: dict[str, t.Any] = {c["field"]: c for c in schema["columns"]}
 
     table_data: t.List[dict] = []
 
+    # for each row, get the airtable value for each specified column
+    # create a new row with values for just those columns
+    # if needed, convert the value to a new datatype?
     for row in results:
         new_row: dict[str, t.Any] = {}
-        for field, sqlcol in cols_map.items():
+        for field, col_spec in col_map.items():
+            sqlcol = col_spec["sqlcolumn"]
+            multi_id_field = "_ids" in sqlcol
+            sqltype = col_spec["sqltype"]
+
             if sqlcol == "id":
                 new_row["id"] = row["id"]
             else:
                 _value: t.Any = row["fields"].get(field, None)
-                if types_map[field] in REDUCE_LIST_TYPES:
-                    if _value and _value is not None:
-                        if type(_value) is list:
-                            _value = _value[0]
 
-                new_row[sqlcol] = _value
+                # if it's an id field, keep as a list
+                if multi_id_field:
+                    new_row[sqlcol] = _value
+                else:
+                    # if it's a scalar field, reduce to first entry
+                    if types_map[field] in LIST_TYPES and not sqltype.endswith("[]"):
+                        if type(_value) is list and len(_value):
+                            _value = _value[0]
+                    # if it's a boolean field, convert to boolean
+                    if sqltype == "BOOLEAN":
+                        _value = _value == "TRUE"
+
+                    new_row[sqlcol] = _value
         table_data.append(new_row)
 
     return table_data
