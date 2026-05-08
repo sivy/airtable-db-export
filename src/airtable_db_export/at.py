@@ -6,6 +6,8 @@ from pathlib import Path
 
 from pyairtable.models import schema as schemas
 
+from airtable_db_export import backends
+
 if t.TYPE_CHECKING:
     from pyairtable import Api as ATApi
     from pyairtable.models.schema import FieldSchema
@@ -112,13 +114,20 @@ def archive_schemas(api_client: "ATApi", filename: str) -> None:
 def get_sqlcol_and_type(
     col_map: dict[str, t.Any],
     field: "FieldSchema",
+    backend: str = "duckdb",
 ) -> tuple[str, str, bool]:
     """
-    Get sqlcol and sqltype
+    Get sqlcol and sqltype for a field.
 
-    Returns tuple of (sqlcol: str, sqltype: str, user_specified: bool)
+    Args:
+        col_map: Column mapping configuration
+        field: Airtable field schema
+        backend: Database backend ("duckdb" or "sqlite")
 
-    If userspecified is True, callers should not modify values intended
+    Returns:
+        tuple of (sqlcol: str, sqltype: str, user_specified: bool)
+
+    If user_specified is True, callers should not modify values intended
     for this field.
     """
     fieldtype: ATYPES.ATYPE = ATYPES.ATYPE(field.type)
@@ -136,7 +145,7 @@ def get_sqlcol_and_type(
         return sqlcol, sqltype, True
     else:
         sqlcol: str = col_map.get(field.name, clean_name(field.name))
-        sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+        sqltype: str = backends.sql_type_for_airtable(field.type, backend)
 
     ## identify richtext as markdown
     if fieldtype == ATYPES.RICH_TEXT:
@@ -153,7 +162,7 @@ def get_sqlcol_and_type(
         if prefers_single:  # type: ignore
             ## identify single record links as "_id"
             fieldtype = ATYPES.SINGLE_RECORD_LINK
-            sqltype: str = TYPEMAP.get(fieldtype, "VARCHAR")
+            sqltype: str = backends.sql_type_for_airtable("singleRecordLink", backend)
             sqlcol = make_id(sqlcol)
         else:
             ## identify multiple record links as "_ids"
@@ -170,13 +179,18 @@ def get_sqlcol_and_type(
 
         target_field = schemas.parse_field_schema(target_field_data)
 
-        sqlcol, sqltype, user_specified = get_sqlcol_and_type(col_map, target_field)
+        sqlcol, sqltype, user_specified = get_sqlcol_and_type(
+            col_map, target_field, backend
+        )
 
     return sqlcol, sqltype, user_specified
 
 
 def make_sql_schema(
-    api_client: "ATApi", tconf: t.Dict[str, t.Any], col_filters: list[str] | None = None
+    api_client: "ATApi",
+    tconf: t.Dict[str, t.Any],
+    col_filters: list[str] | None = None,
+    backend: str = "duckdb",
 ) -> t.Dict:
     """
     Inspect the an Airtable base and table schema and use the configuration to
@@ -249,7 +263,7 @@ def make_sql_schema(
         aname: str = field.name
         atype: str = field.type
 
-        sqlcol, sqltype, user_specified = get_sqlcol_and_type(col_map, field)
+        sqlcol, sqltype, user_specified = get_sqlcol_and_type(col_map, field, backend)
 
         description = field.description
 
@@ -315,6 +329,7 @@ def make_schema_json(
     api_client: "ATApi",
     conf: dict,
     path: Path | str = "schemas.json",
+    backend: str = "duckdb",
 ) -> None:
     """
     Inspects the Airtable base schema and, for the tables listed in the config, generates the
@@ -353,7 +368,9 @@ def make_schema_json(
     table_confs: list[dict] = conf.get("tables", [])
 
     for tconf in table_confs:
-        tschema: dict[str, dict] = make_sql_schema(api_client, tconf, col_filters)
+        tschema: dict[str, dict] = make_sql_schema(
+            api_client, tconf, col_filters, backend
+        )
         all_schemas.append(tschema)
 
     with open(path, "w") as schema_file:

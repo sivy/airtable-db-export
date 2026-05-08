@@ -6,7 +6,7 @@ import click
 from dotenv import find_dotenv, load_dotenv
 from pyairtable import Api as ATApi
 
-from airtable_db_export import at, db, utils
+from airtable_db_export import at, backends, db, utils
 
 # find the local env file in the CWD,
 # not the library local path
@@ -110,6 +110,14 @@ The file path for the generated database.
 If <base_dir> is set, will be treated as relative to <base_dir> unless it's an absolute path.
 """,
 )
+@click.option(
+    "--backend",
+    default="",
+    help="""
+Database backend to use (duckdb or sqlite).
+If not specified, will be auto-detected from db-file extension.
+""",
+)
 @click.pass_context
 def cli(
     ctx,
@@ -120,6 +128,7 @@ def cli(
     data_dir: str,
     sql_dir: str,
     db_file: str,
+    backend: str,
 ):
     """
     Main entry point for the CLI.
@@ -163,10 +172,28 @@ def cli(
 
     ######################################
     # setup location for the database file
-    # TODO: handle sqlite as well as duckdb formats
-    # TODO: handle connection urls for postgres, mysql, etc
     if not db_file:
         db_file = config.get("db_file", "airtable.duckdb")
+
+    ######################################
+    # Determine database backend
+    # Priority: CLI flag > config file > auto-detect from extension
+    if backend:
+        # Validate CLI backend if provided
+        backend = backends.validate_backend(backend)
+    else:
+        backend = config.get("backend", "")
+        if backend:
+            backend = backends.validate_backend(backend)
+        else:
+            # Auto-detect from db_file extension
+            try:
+                backend = backends.detect_backend(db_file)
+            except ValueError as e:
+                click.echo(f"Backend detection error: {e}", err=True)
+                import sys
+
+                sys.exit(1)
 
     ###############################
     # get API key and set up client
@@ -185,6 +212,7 @@ def cli(
         "data_dir": data_dir,
         "sql_dir": sql_dir,
         "db_file": db_file,
+        "backend": backend,
     }
 
 
@@ -192,13 +220,14 @@ def _generate_schema_map(
     api_client: ATApi,
     config: dict,
     schemas_file: Path | str,
+    backend: str = "duckdb",
 ) -> None:
     """
     Generate the intermediate mappings from Airtable tables to SQL tables based
     on the config.
     """
     click.echo(f"Generating schema mappings to file: {schemas_file}")
-    at.make_schema_json(api_client, config, schemas_file)
+    at.make_schema_json(api_client, config, schemas_file, backend)
 
 
 @cli.command("reference-schemas")
@@ -288,7 +317,8 @@ def generate_schema_map(ctx):
     schemas_file = ensure_path(schemas_file, base_dir=base_dir)
 
     api_client = ctx.obj["client"]
-    _generate_schema_map(api_client, config, schemas_file)
+    backend = ctx.obj["backend"]
+    _generate_schema_map(api_client, config, schemas_file, backend)
 
 
 def _download_data(
@@ -357,11 +387,13 @@ def download_data(ctx, formats: list):
     click.echo("Downloading data complete")
 
 
-def _create_sql(schemas_file: Path | str, sql_dir: Path | str) -> None:
+def _create_sql(
+    schemas_file: Path | str, sql_dir: Path | str, backend: str = "duckdb"
+) -> None:
     click.echo("Generate CREATE DDL")
 
     schemas: list[dict[str, t.Any]] = utils.load_schemas(schemas_file)
-    db.make_create_files(schemas, sql_dir)
+    db.make_create_files(schemas, sql_dir, backend)
     click.echo("CREATE DDL complete")
 
 
@@ -383,19 +415,21 @@ def create_sql(ctx):
     sql_dir = ctx.obj["sql_dir"]
     sql_dir = ensure_path(sql_dir, base_dir=base_dir)
 
-    _create_sql(schemas_file, sql_dir)
+    backend = ctx.obj["backend"]
+    _create_sql(schemas_file, sql_dir, backend)
 
 
 def _create_db(
     schemas_file: Path | str,
     db_file: Path | str,
     sql_dir: Path | str,
+    backend: str = "duckdb",
 ) -> None:
     """ """
     click.echo(f"Create database in {db_file}")
 
     schemas = utils.load_schemas(schemas_file)
-    db.bootstrap_db(db_file, schemas, sql_dir)
+    db.bootstrap_db(db_file, schemas, sql_dir, backend)
 
 
 @cli.command(
@@ -418,15 +452,21 @@ def create_db(ctx):
     db_file = ctx.obj["db_file"]
     db_file = ensure_path(db_file, parents_only=True, base_dir=base_dir)
 
-    _create_db(schemas_file, db_file, sql_dir)
+    backend = ctx.obj["backend"]
+    _create_db(schemas_file, db_file, sql_dir, backend)
 
 
-def _load_db(db_file: Path | str, schemas_file: Path | str, data_dir: Path | str):
+def _load_db(
+    db_file: Path | str,
+    schemas_file: Path | str,
+    data_dir: Path | str,
+    backend: str = "duckdb",
+):
     """ """
     schemas = utils.load_schemas(schemas_file)
     # load create tables
     click.echo("Load database")
-    db.load_db(db_file, schemas, data_dir)
+    db.load_db(db_file, schemas, data_dir, backend)
 
 
 @cli.command(
@@ -451,7 +491,8 @@ def load_db(ctx):
         db_file, parents_only=True, base_dir=base_dir, must_exist=True
     )
 
-    _load_db(db_file, schemas_file, data_dir)
+    backend = ctx.obj["backend"]
+    _load_db(db_file, schemas_file, data_dir, backend)
 
 
 @cli.command()
@@ -470,6 +511,7 @@ def all(ctx):
     sql_dir = ctx.obj["sql_dir"]
     api_client = ctx.obj["client"]
     db_file = ctx.obj["db_file"]
+    backend = ctx.obj["backend"]
 
     schemas_file = ensure_path(schemas_file, base_dir=base_dir)
     data_dir = ensure_path(data_dir, base_dir=base_dir)
@@ -477,15 +519,15 @@ def all(ctx):
     db_file = ensure_path(db_file, parents_only=True, base_dir=base_dir)
 
     # update airtable schema
-    _generate_schema_map(api_client, config, schemas_file)
+    _generate_schema_map(api_client, config, schemas_file, backend)
     # generate sql schemas
-    _create_sql(schemas_file, sql_dir)
+    _create_sql(schemas_file, sql_dir, backend)
     # fetch airtable data
     _download_data(api_client, schemas_file, data_dir, utils.save_table_json)
     # build db
-    _create_db(schemas_file, db_file, sql_dir)
+    _create_db(schemas_file, db_file, sql_dir, backend)
     # load db
-    _load_db(db_file, schemas_file, data_dir)
+    _load_db(db_file, schemas_file, data_dir, backend)
 
 
 if __name__ == "__main__":
