@@ -97,3 +97,137 @@ def test_context_options(test_config_file, option, value, var):
     )
     assert "Context OK" in result.output
     assert f"Context {var} == {value} OK" in result.output
+
+
+@pytest.mark.parametrize(
+    "db_file,expected_backend",
+    [
+        ("test.duckdb", "duckdb"),
+        ("test.sqlite", "sqlite"),
+    ],
+)
+def test_backend_auto_detected_from_extension(
+    test_config_file, db_file, expected_backend
+):
+    """Backend should be auto-detected from db-file extension."""
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "-c",
+            test_config_file,
+            "--db-file",
+            db_file,
+            "test-ctx",
+            "--key",
+            "backend",
+            "--value",
+            expected_backend,
+        ],
+    )
+    assert "Context OK" in result.output
+    assert f"Context backend == {expected_backend} OK" in result.output
+
+
+def test_backend_cli_flag_overrides_extension(test_config_file):
+    """--backend flag should override extension-based detection."""
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "-c",
+            test_config_file,
+            "--db-file",
+            "test.duckdb",  # extension suggests duckdb
+            "--backend",
+            "sqlite",  # CLI override
+            "test-ctx",
+            "--key",
+            "backend",
+            "--value",
+            "sqlite",
+        ],
+    )
+    assert "Context OK" in result.output
+    assert "Context backend == sqlite OK" in result.output
+
+
+def test_backend_ambiguous_extension_fails(test_config_file):
+    """Ambiguous extensions like .db should require --backend flag."""
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "-c",
+            test_config_file,
+            "--db-file",
+            "test.db",
+            "test-ctx",
+        ],
+    )
+    assert result.exit_code != 0
+
+
+def test_backend_from_config_file(tmp_path):
+    """Backend should be read from config file when present."""
+    config_path = tmp_path / "config.yml"
+    with open(config_path, "w") as f:
+        f.write("""
+        base_dir: generated
+        schemas_file: schemas.json
+        datadir: data
+        sql_dir: create_sql
+        db_file: example.duckdb
+        backend: sqlite
+        """)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "-c",
+            str(config_path),
+            "test-ctx",
+            "--key",
+            "backend",
+            "--value",
+            "sqlite",
+        ],
+    )
+    assert "Context OK" in result.output
+    assert "Context backend == sqlite OK" in result.output
+
+
+def test_backend_cli_overrides_config_file(tmp_path):
+    """--backend CLI flag should override backend set in config file."""
+    config_path = tmp_path / "config.yml"
+    with open(config_path, "w") as f:
+        f.write("""
+        base_dir: generated
+        schemas_file: schemas.json
+        datadir: data
+        sql_dir: create_sql
+        db_file: example.duckdb
+        backend: sqlite
+        """)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "-c",
+            str(config_path),
+            "--backend",
+            "duckdb",
+            "test-ctx",
+            "--key",
+            "backend",
+            "--value",
+            "duckdb",
+        ],
+    )
+    assert "Context OK" in result.output
+    assert "Context backend == duckdb OK" in result.output
