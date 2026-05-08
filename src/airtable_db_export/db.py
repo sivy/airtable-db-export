@@ -2,8 +2,13 @@ import typing as t
 import duckdb
 from contextlib import contextmanager
 from pathlib import Path
+import logging
 
 import re
+
+from airtable_db_export import backends
+
+logger = logging.getLogger(__name__)
 
 
 ###
@@ -25,21 +30,40 @@ def bootstrap_db(
     dbfile: Path | str,
     schemas: t.List[dict],
     data_dir: Path | str = "sql",
+    backend: str = "duckdb",
 ) -> None:
     """
-    Bootstrap the database with the create table files
+    Bootstrap the database with the create table files.
+
+    Args:
+        dbfile: Path to database file
+        schemas: List of table schemas
+        data_dir: Directory containing SQL CREATE files
+        backend: Database backend ("duckdb" or "sqlite")
     """
-    with dbconn(dbfile) as conn:
+    adapter = backends.get_adapter(backend)
+    conn = adapter.connect(dbfile)
+    try:
         for schema in schemas:
-            with open(f"{data_dir}/create_{schema['sqltable']}.sql", "r") as f:
-                conn.sql(f.read())
+            sql_file = f"{data_dir}/create_{schema['sqltable']}.sql"
+            with open(sql_file, "r") as f:
+                sql = f.read()
+            adapter.execute_sql(conn, sql)
+            logger.info(f"Created table {schema['sqltable']}")
+    finally:
+        adapter.close(conn)
 
 
-def make_table_create(schema: t.Dict[str, t.Any]) -> str:
+def make_table_create(schema: t.Dict[str, t.Any], backend: str = "duckdb") -> str:
     """
-    Make SQL create table statement from schema
+    Make SQL create table statement from schema.
 
-    schema: schema dictionary
+    Args:
+        schema: Table schema dictionary
+        backend: Database backend ("duckdb" or "sqlite")
+
+    Returns:
+        SQL CREATE TABLE statement
     """
     table: dict[str, t.Any] = schema["sqltable"]
 
@@ -48,7 +72,14 @@ def make_table_create(schema: t.Dict[str, t.Any]) -> str:
     for col in schema["columns"]:
         if "sqlcolumn" in col:
             xtra: str = col.get("extra", "")
-            coldefs.append(f"{col['sqlcolumn']} {col['sqltype']} {xtra}")
+            sqltype: str = col["sqltype"]
+
+            # Adjust SQL type for SQLite if needed
+            if backend == "sqlite":
+                # SQLite doesn't support FLOAT, use REAL instead
+                sqltype = sqltype.replace("FLOAT", "REAL")
+
+            coldefs.append(f"{col['sqlcolumn']} {sqltype} {xtra}")
 
     return stmt + "(" + ",\n".join(coldefs) + ");"
 
@@ -56,29 +87,45 @@ def make_table_create(schema: t.Dict[str, t.Any]) -> str:
 def make_create_files(
     schemas: t.List[t.Dict[str, t.Any]],
     sql_dir: Path | str = "create_sql",
+    backend: str = "duckdb",
 ) -> None:
     """
-    Make SQL create table statements from schemas
+    Make SQL create table statements from schemas.
+
+    Args:
+        schemas: List of table schemas
+        sql_dir: Directory to write SQL files to
+        backend: Database backend ("duckdb" or "sqlite")
     """
     for create_schema in schemas:
-        create_sql: str = make_table_create(create_schema)
+        create_sql: str = make_table_create(create_schema, backend)
         with open(f"{sql_dir}/create_{create_schema['sqltable']}.sql", "w") as sqlfile:
             sqlfile.write(create_sql)
+        logger.info(f"Generated SQL for table {create_schema['sqltable']}")
 
 
 def load_db(
     dbfile: Path | str,
     schemas: t.List[dict],
     data_dir: Path | str = "data",
+    backend: str = "duckdb",
 ) -> None:
-    with dbconn(dbfile) as conn:
+    """
+    Load JSON data into database tables.
+
+    Args:
+        dbfile: Path to database file
+        schemas: List of table schemas
+        data_dir: Directory containing JSON data files
+        backend: Database backend ("duckdb" or "sqlite")
+    """
+    adapter = backends.get_adapter(backend)
+    conn = adapter.connect(dbfile)
+    try:
         for schema in schemas:
-            print(
-                f"Loading table {schema['sqltable']} from {data_dir}/{schema['sqltable']}.json"
+            json_file = f"{data_dir}/{schema['sqltable']}.json"
+            adapter.execute_insert_from_json(
+                conn, schema["sqltable"], json_file, schema
             )
-            sql: str = (
-                f"INSERT INTO {schema['sqltable']}\n"
-                f"SELECT * "
-                f"FROM read_json('{data_dir}/{schema['sqltable']}.json');"
-            )
-            conn.sql(sql)
+    finally:
+        adapter.close(conn)
